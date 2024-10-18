@@ -5,6 +5,11 @@
 #include <string>
 using namespace std;
 
+namespace Eigen
+{
+	const Vector3f Vector3fOne = { 1.0f, 1.0f, 1.0f };
+}
+
 class VisualDebugging {
 public:
 	static void Initialize(vtkSmartPointer<vtkRenderer> renderer);

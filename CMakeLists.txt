@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(GPV LANGUAGES CXX CUDA)
+project(cuMC LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,6 +23,8 @@ set(cuda_source_list
     src/CUDA/KDTree.cu
     src/CUDA/SVO.cuh
     src/CUDA/SVO.cu
+    src/CUDA/HashTable.cuh
+    src/CUDA/HashTable.cu
 )
 
 # List of C++ source files
@@ -31,6 +33,8 @@ set(source_list
     src/Common.h
     src/stdHeaderFiles.h
     src/vtkHeaderFiles.h
+    src/App/App.h
+    src/App/App.cpp
     src/App/CustomTrackballStyle.h
     src/App/CustomTrackballStyle.cpp
     src/App/Utility.h
@@ -53,19 +57,29 @@ set_source_files_properties(${cuda_source_list} PROPERTIES LANGUAGE CUDA)
 # Compile CUDA files into an object library
 add_library(cuda_objects OBJECT ${cuda_source_list})
 
+target_include_directories(cuda_objects PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    "External"
+    "External/eigen"
+    ${OPENVDB_INCLUDE_DIRS}
+    ${VTK_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
+)
+
 # Create the final executable by linking C++ sources and CUDA object files
-add_executable(GPV
+add_executable(cuMC
     ${source_list}
     $<TARGET_OBJECTS:cuda_objects>  # Link CUDA object files here
 )
 
 # Optional: Set MSVC-specific options
 if(MSVC)
-    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT GPV)
-    target_compile_options(GPV PRIVATE /bigobj)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT cuMC)
+    target_compile_options(cuMC PRIVATE /bigobj)
 endif()
 
-target_include_directories(GPV PRIVATE
+target_include_directories(cuMC PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     "External"
@@ -85,19 +99,19 @@ target_include_directories(cuda_objects PRIVATE
     ${CUDAToolkit_INCLUDE_DIRS}
 )
 
-target_link_libraries(GPV PRIVATE OpenVDB::openvdb)
-target_link_libraries(GPV PRIVATE ${VTK_LIBRARIES})
-target_link_libraries(GPV PRIVATE ${PCL_LIBRARIES})
-target_link_libraries(GPV PRIVATE CUDA::cudart CUDA::cuda_driver)
+target_link_libraries(cuMC PRIVATE OpenVDB::openvdb)
+target_link_libraries(cuMC PRIVATE ${VTK_LIBRARIES})
+target_link_libraries(cuMC PRIVATE ${PCL_LIBRARIES})
+target_link_libraries(cuMC PRIVATE CUDA::cudart CUDA::cuda_driver)
 
 # Enable separable compilation if needed, or disable for faster builds
-set_target_properties(GPV PROPERTIES
+set_target_properties(cuMC PROPERTIES
     CUDA_SEPARABLE_COMPILATION OFF  # Change to ON if needed
     CUDA_STANDARD 11  # Adjust based on your CUDA version
 )
 
 vtk_module_autoinit(
-    TARGETS GPV
+    TARGETS cuMC
     MODULES ${VTK_LIBRARIES}
 )
 
