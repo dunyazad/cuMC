@@ -1,3 +1,6 @@
 [submodule "External/eigen"]
 	path = External/eigen
 	url = https://gitlab.com/libeigen/eigen.git
+[submodule "External/openvdb"]
+	path = External/openvdb
+	url = https://github.com/AcademySoftwareFoundation/openvdb.git

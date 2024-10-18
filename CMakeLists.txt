@@ -57,16 +57,6 @@ set_source_files_properties(${cuda_source_list} PROPERTIES LANGUAGE CUDA)
 # Compile CUDA files into an object library
 add_library(cuda_objects OBJECT ${cuda_source_list})
 
-target_include_directories(cuda_objects PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    "External"
-    "External/eigen"
-    ${OPENVDB_INCLUDE_DIRS}
-    ${VTK_INCLUDE_DIRS}
-    ${CUDAToolkit_INCLUDE_DIRS}
-)
-
 # Create the final executable by linking C++ sources and CUDA object files
 add_executable(cuMC
     ${source_list}
@@ -84,6 +74,7 @@ target_include_directories(cuMC PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     "External"
     "External/eigen"
+    "External/openvdb/nanovdb"
     ${OPENVDB_INCLUDE_DIRS}
     ${VTK_INCLUDE_DIRS}
     ${CUDAToolkit_INCLUDE_DIRS}
@@ -94,6 +85,7 @@ target_include_directories(cuda_objects PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     "External"
     "External/eigen"
+    "External/openvdb/nanovdb"
     ${OPENVDB_INCLUDE_DIRS}
     ${VTK_INCLUDE_DIRS}
     ${CUDAToolkit_INCLUDE_DIRS}

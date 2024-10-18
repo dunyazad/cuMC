@@ -70,6 +70,10 @@ void App::AddAppStartCallback(function<void(App*)> f)
 
 void App::AddAppStartCallback(const string& name, function<void(App*)> f)
 {
+    if (0 != appStartCallbacks.count(name))
+    {
+        printf("[Error] same name callback exists!");
+    }
     appStartCallbacks[name] = f;
 }
 
@@ -93,6 +97,10 @@ void App::AddKeyPressCallback(function<void(vtkObject*, long unsigned int, void*
 
 void App::AddKeyPressCallback(const string& name, function<void(vtkObject*, long unsigned int, void*, void*)> f)
 {
+    if (0 != keyPressCallbacks.count(name))
+    {
+        printf("[Error] same name callback exists!");
+    }
 	keyPressCallbacks[name] = f;
 }
 
