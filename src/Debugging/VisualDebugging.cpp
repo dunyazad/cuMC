@@ -1,10 +1,10 @@
 #include <Debugging/VisualDebugging.h>
 
 bool VisualDebugging::s_needToRender = false;
-VisualDebugging *VisualDebugging::s_instance = nullptr;
+VisualDebugging* VisualDebugging::s_instance = nullptr;
 
 map<string, int> VisualDebugging::s_layerNameIndexMapping;
-vector<VisualDebuggingLayer *> VisualDebugging::s_layers;
+vector<VisualDebuggingLayer*> VisualDebugging::s_layers;
 
 vtkSmartPointer<vtkRenderer> VisualDebugging::s_renderer = nullptr;
 vtkSmartPointer<vtkRenderWindow> VisualDebugging::s_renderWindow = nullptr;
@@ -40,7 +40,7 @@ void VisualDebugging::Terminate()
 	s_layerNameIndexMapping.clear();
 }
 
-VisualDebuggingLayer* VisualDebugging::CreateLayer(const string &layerName)
+VisualDebuggingLayer* VisualDebugging::CreateLayer(const string& layerName)
 {
 	if (s_layerNameIndexMapping.count(layerName) != 0)
 	{
@@ -80,7 +80,7 @@ void VisualDebugging::ClearAll()
 	s_needToRender = true;
 }
 
-void VisualDebugging::Clear(const string &layerName)
+void VisualDebugging::Clear(const string& layerName)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr != layer)
@@ -101,7 +101,7 @@ void VisualDebugging::ToggleVisibilityAll()
 	s_needToRender = true;
 }
 
-void VisualDebugging::ToggleVisibility(const string &layerName)
+void VisualDebugging::ToggleVisibility(const string& layerName)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr != layer)
@@ -132,7 +132,7 @@ void VisualDebugging::SetRepresentationAll(Representation representation)
 	s_needToRender = true;
 }
 
-void VisualDebugging::SetRepresentation(const string &layerName, Representation representation)
+void VisualDebugging::SetRepresentation(const string& layerName, Representation representation)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr != layer)
@@ -163,7 +163,7 @@ void VisualDebugging::ToggleRepresentationAll()
 	s_needToRender = true;
 }
 
-void VisualDebugging::ToggleRepresentation(const string &layerName)
+void VisualDebugging::ToggleRepresentation(const string& layerName)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr != layer)
@@ -328,7 +328,7 @@ int VisualDebugging::GetNumberOfLayers()
 	return (int)s_layers.size();
 }
 
-VisualDebuggingLayer *VisualDebugging::GetLayer(const string &layerName)
+VisualDebuggingLayer* VisualDebugging::GetLayer(const string& layerName)
 {
 	if (s_layerNameIndexMapping.count(layerName) != 0)
 	{
@@ -340,7 +340,7 @@ VisualDebuggingLayer *VisualDebugging::GetLayer(const string &layerName)
 	}
 }
 
-void VisualDebugging::AddLine(const string &layerName, const Eigen::Vector3f &p0, const Eigen::Vector3f &p1, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddLine(const string& layerName, const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -348,12 +348,12 @@ void VisualDebugging::AddLine(const string &layerName, const Eigen::Vector3f &p0
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddLine(p0, p1, r, g, b);
+	layer->AddLine(p0, p1, color);
 
 	s_needToRender = true;
 }
 
-void VisualDebugging::AddTriangle(const string &layerName, const Eigen::Vector3f &p0, const Eigen::Vector3f &p1, const Eigen::Vector3f &p2, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddTriangle(const string& layerName, const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Eigen::Vector3f& p2, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -361,12 +361,12 @@ void VisualDebugging::AddTriangle(const string &layerName, const Eigen::Vector3f
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddTriangle(p0, p1, p2, r, g, b);
+	layer->AddTriangle(p0, p1, p2, color);
 
 	s_needToRender = true;
 }
 
-void VisualDebugging::AddSphere(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddSphere(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -374,12 +374,12 @@ void VisualDebugging::AddSphere(const string& layerName, const Eigen::Vector3f& 
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddSphere(center, scale, normal, r, g, b);
+	layer->AddSphere(center, scale, normal, color);
 
 	s_needToRender = true;
 }
 
-void VisualDebugging::AddCube(const string &layerName, const Eigen::Vector3f &center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddCube(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -387,12 +387,12 @@ void VisualDebugging::AddCube(const string &layerName, const Eigen::Vector3f &ce
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddCube(center, scale, normal, r, g, b);
+	layer->AddCube(center, scale, normal, color);
 
 	s_needToRender = true;
 }
 
-void VisualDebugging::AddGlyph(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddGlyph(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -400,12 +400,12 @@ void VisualDebugging::AddGlyph(const string& layerName, const Eigen::Vector3f& c
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddGlyph(center, scale, normal, r, g, b);
+	layer->AddGlyph(center, scale, normal, color);
 
 	s_needToRender = true;
 }
 
-void VisualDebugging::AddArrow(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebugging::AddArrow(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, const Color4& color)
 {
 	auto layer = GetLayer(layerName);
 	if (nullptr == layer)
@@ -413,7 +413,7 @@ void VisualDebugging::AddArrow(const string& layerName, const Eigen::Vector3f& c
 		layer = CreateLayer(layerName);
 	}
 
-	layer->AddArrow(center, normal, scale, r, g, b);
+	layer->AddArrow(center, normal, scale, color);
 
 	s_needToRender = true;
 }

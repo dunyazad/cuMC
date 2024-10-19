@@ -2,12 +2,13 @@
 
 #include <Debugging/VisualDebuggingLayer.h>
 
-#include <string>
-using namespace std;
+#include <Color.h>
 
 namespace Eigen
 {
+	const Vector3f Vector3fZero = { 1.0f, 1.0f, 1.0f };
 	const Vector3f Vector3fOne = { 1.0f, 1.0f, 1.0f };
+	const Vector3f Vector3fMax = { FLT_MAX, FLT_MAX, FLT_MAX };
 }
 
 class VisualDebugging {
@@ -17,21 +18,17 @@ public:
 
 	static VisualDebuggingLayer* CreateLayer(const string& layerName);
 
-	static void AddLine(const string& layerName, const Eigen::Vector3f& p0,
-		const Eigen::Vector3f& p1, unsigned char r, unsigned char g,
-		unsigned char b);
+	static void AddLine(const string& layerName, const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Color4& color);
 
-	static void AddTriangle(const string& layerName, const Eigen::Vector3f& p0,
-		const Eigen::Vector3f& p1, const Eigen::Vector3f& p2,
-		unsigned char r, unsigned char g, unsigned char b);
+	static void AddTriangle(const string& layerName, const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Eigen::Vector3f& p2, const Color4& color);
 
-	static void AddSphere(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	static void AddSphere(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 
-	static void AddCube(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	static void AddCube(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 
-	static void AddGlyph(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	static void AddGlyph(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 
-	static void AddArrow(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, unsigned char r, unsigned char g, unsigned char b);
+	static void AddArrow(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, const Color4& color);
 
 	static void Update();
 	static void ClearAll();

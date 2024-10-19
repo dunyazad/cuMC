@@ -436,43 +436,40 @@ void VisualDebuggingLayer::Clear()
 	Initialize(renderer);
 }
 
-void VisualDebuggingLayer::AddPoint(const Eigen::Vector3f& p, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebuggingLayer::AddPoint(const Eigen::Vector3f& p, const Color4& color)
 {
-	pointInfosToDraw.push_back(std::make_tuple(p, r, g, b));
+	pointInfosToDraw.push_back(std::make_tuple(p, color));
 }
 
-void VisualDebuggingLayer::AddLine(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1,
-	unsigned char r, unsigned char g, unsigned char b)
+void VisualDebuggingLayer::AddLine(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Color4& color)
 {
-	lineInfosToDraw.push_back(std::make_tuple(p0, p1, r, g, b));
+	lineInfosToDraw.push_back(std::make_tuple(p0, p1, color));
 }
 
 void VisualDebuggingLayer::AddTriangle(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1,
-	const Eigen::Vector3f& p2, unsigned char r, unsigned char g, unsigned char b)
+	const Eigen::Vector3f& p2, const Color4& color)
 {
-	triangleInfosToDraw.push_back(std::make_tuple(p0, p1, p2, r, g, b));
+	triangleInfosToDraw.push_back(std::make_tuple(p0, p1, p2, color));
 }
 
-void VisualDebuggingLayer::AddSphere(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebuggingLayer::AddSphere(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
-	sphereInfosToDraw.push_back(std::make_tuple(center, scale, normal, r, g, b));
+	sphereInfosToDraw.push_back(std::make_tuple(center, scale, normal, color));
 }
 
-void VisualDebuggingLayer::AddCube(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebuggingLayer::AddCube(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
-	cubeInfosToDraw.push_back(std::make_tuple(center, scale, normal, r, g, b));
+	cubeInfosToDraw.push_back(std::make_tuple(center, scale, normal, color));
 }
 
-void VisualDebuggingLayer::AddGlyph(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b)
+void VisualDebuggingLayer::AddGlyph(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
-	glyphInfosToDraw.push_back(std::make_tuple(center, scale, normal, r, g, b));
+	glyphInfosToDraw.push_back(std::make_tuple(center, scale, normal, color));
 }
 
-void VisualDebuggingLayer::AddArrow(const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale,
-	unsigned char r, unsigned char g,
-	unsigned char b)
+void VisualDebuggingLayer::AddArrow(const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, const Color4& color)
 {
-	arrowInfosToDraw.push_back(std::make_tuple(center, normal, scale, r, g, b));
+	arrowInfosToDraw.push_back(std::make_tuple(center, normal, scale, color));
 }
 
 void VisualDebuggingLayer::ShowAll(bool show)
@@ -739,13 +736,10 @@ void VisualDebuggingLayer::DrawPoints()
 	for (auto& pointInfo : pointInfosToDraw)
 	{
 		auto p = std::get<0>(pointInfo);
-		auto r = std::get<1>(pointInfo);
-		auto g = std::get<2>(pointInfo);
-		auto b = std::get<3>(pointInfo);
+		auto color = std::get<1>(pointInfo);
 
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	vtkSmartPointer<vtkPolyData> newPointPolyData =
@@ -777,10 +771,8 @@ void VisualDebuggingLayer::DrawLines()
 	{
 		auto p0 = std::get<0>(lineInfo);
 		auto p1 = std::get<1>(lineInfo);
-		auto r = std::get<2>(lineInfo);
-		auto g = std::get<3>(lineInfo);
-		auto b = std::get<4>(lineInfo);
-
+		auto color = std::get<2>(lineInfo);
+		
 		auto pi0 = points->InsertNextPoint(p0.data());
 		auto pi1 = points->InsertNextPoint(p1.data());
 
@@ -788,9 +780,8 @@ void VisualDebuggingLayer::DrawLines()
 
 		lines->InsertNextCell(2, pids);
 
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	vtkSmartPointer<vtkPolyData> newLinePolyData =
@@ -825,9 +816,7 @@ void VisualDebuggingLayer::DrawTriangle()
 		auto p0 = std::get<0>(triangleInfo);
 		auto p1 = std::get<1>(triangleInfo);
 		auto p2 = std::get<2>(triangleInfo);
-		auto r = std::get<3>(triangleInfo);
-		auto g = std::get<4>(triangleInfo);
-		auto b = std::get<5>(triangleInfo);
+		auto color = std::get<3>(triangleInfo);
 
 		auto pi0 = points->InsertNextPoint(p0.data());
 		auto pi1 = points->InsertNextPoint(p1.data());
@@ -837,10 +826,9 @@ void VisualDebuggingLayer::DrawTriangle()
 
 		triangles->InsertNextCell(3, pids);
 
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
-		colors->InsertNextTypedTuple(uc);
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
+		colors->InsertNextTypedTuple(color.data());
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	vtkNew<vtkPolyData> newTrianglePolyData;
@@ -877,16 +865,13 @@ void VisualDebuggingLayer::DrawSpheres()
 		auto center = std::get<0>(sphereInfo);
 		auto scale = std::get<1>(sphereInfo);
 		auto normal = std::get<2>(sphereInfo);
-		auto r = std::get<3>(sphereInfo);
-		auto g = std::get<4>(sphereInfo);
-		auto b = std::get<5>(sphereInfo);
-
+		auto color = std::get<3>(sphereInfo);
+		
 		points->InsertNextPoint(center.data());
 		//scales->InsertNextValue(scale);
 		scales->InsertNextTuple3(scale.x(), scale.y(), scale.z());
 		normals->InsertNextTuple3(normal.x(), normal.y(), normal.z());
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	points->Modified();
@@ -914,16 +899,13 @@ void VisualDebuggingLayer::DrawCubes()
 		auto center = std::get<0>(cubeInfo);
 		auto scale = std::get<1>(cubeInfo);
 		auto normal = std::get<2>(cubeInfo);
-		auto r = std::get<3>(cubeInfo);
-		auto g = std::get<4>(cubeInfo);
-		auto b = std::get<5>(cubeInfo);
-
+		auto color = std::get<3>(cubeInfo);
+		
 		points->InsertNextPoint(center.data());
 		//scales->InsertNextValue(scale);
 		scales->InsertNextTuple3(scale.x(), scale.y(), scale.z());
 		normals->InsertNextTuple3(normal.x(), normal.y(), normal.z());
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	points->Modified();
@@ -951,16 +933,13 @@ void VisualDebuggingLayer::DrawGlyphs()
 		auto center = std::get<0>(glyphInfo);
 		auto scale = std::get<1>(glyphInfo);
 		auto normal = std::get<2>(glyphInfo);
-		auto r = std::get<3>(glyphInfo);
-		auto g = std::get<4>(glyphInfo);
-		auto b = std::get<5>(glyphInfo);
-
+		auto color = std::get<3>(glyphInfo);
+		
 		points->InsertNextPoint(center.data());
 		//scales->InsertNextValue(scale);
 		scales->InsertNextTuple3(scale.x(), scale.y(), scale.z());
 		normals->InsertNextTuple3(normal.x(), normal.y(), normal.z());
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	points->Modified();
@@ -985,15 +964,12 @@ void VisualDebuggingLayer::DrawArrows()
 		auto center = std::get<0>(arrowInfo);
 		auto normal = std::get<1>(arrowInfo);
 		auto scale = std::get<2>(arrowInfo);
-		auto r = std::get<3>(arrowInfo);
-		auto g = std::get<4>(arrowInfo);
-		auto b = std::get<5>(arrowInfo);
-
+		auto color = std::get<3>(arrowInfo);
+		
 		points->InsertNextPoint(center.data());
 		scales->InsertNextTuple3(scale, scale, scale);
 		normals->InsertNextTuple3(normal.x(), normal.y(), normal.z());
-		unsigned char uc[3]{ r, g, b };
-		colors->InsertNextTypedTuple(uc);
+		colors->InsertNextTypedTuple(color.data());
 	}
 
 	points->Modified();

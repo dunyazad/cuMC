@@ -114,7 +114,7 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 
 				if (0.0f != normalizedDepth)
 				{
-					VisualDebugging::AddSphere("Depth", { (float)x / (float)width * 100.0f, (float)y / (float)height * 100.0f, normalizedDepth * 100.0f }, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, 255, 255, 255);
+					VisualDebugging::AddSphere("Depth", { (float)x / (float)width * 100.0f, (float)y / (float)height * 100.0f, normalizedDepth * 100.0f }, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
 				}
 			}
 		}
@@ -141,11 +141,16 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 
 int main()
 {
+	auto red = Color3::Red;
+	Eigen::Vector4f r = red;
+
+	std::cout << r.transpose() << std::endl;
+
 	App app;
 	app.AddAppStartCallback([](App* pApp) {
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 255.0f, 0, 0 }, 255, 0, 0);
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0, 255.0f, 0 }, 0, 255, 0);
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0, 0, 255.0f }, 0, 0, 255);
+		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {100.0f, 0.0f, 0.0f}, Color4::Red);
+		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {0.0f, 100.0f, 0.0f}, Color4::Green);
+		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {0.0f, 0.0f, 100.0f }, Color4::Blue);
 		});
 	app.AddKeyPressCallback(OnKeyPress);
 	app.Run();

@@ -33,6 +33,8 @@ set(source_list
     src/Common.h
     src/stdHeaderFiles.h
     src/vtkHeaderFiles.h
+    src/Color.h
+    src/Color.cpp
     src/App/App.h
     src/App/App.cpp
     src/App/CustomTrackballStyle.h

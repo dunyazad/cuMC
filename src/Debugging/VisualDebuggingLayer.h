@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Common.h>
+#include <Color.h>
 
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -58,19 +59,19 @@ public:
 	void Initialize(vtkSmartPointer<vtkRenderer> renderer);
 	void Terminate();
 
-	void AddPoint(const Eigen::Vector3f& p, unsigned char r, unsigned char g, unsigned char b);
+	void AddPoint(const Eigen::Vector3f& p, const Color4& color);
 
-	void AddLine(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, unsigned char r, unsigned char g, unsigned char b);
+	void AddLine(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Color4& color);
 	
-	void AddTriangle(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Eigen::Vector3f& p2, unsigned char r, unsigned char g, unsigned char b);
+	void AddTriangle(const Eigen::Vector3f& p0, const Eigen::Vector3f& p1, const Eigen::Vector3f& p2, const Color4& color);
 
-	void AddSphere(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	void AddSphere(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 	
-	void AddCube(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	void AddCube(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 
-	void AddGlyph(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, unsigned char r, unsigned char g, unsigned char b);
+	void AddGlyph(const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color);
 
-	void AddArrow(const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, unsigned char r, unsigned char g, unsigned char b);
+	void AddArrow(const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, const Color4& color);
 
 	void Update();
 	void Clear();
@@ -159,11 +160,11 @@ private:
 	void DrawGlyphs();
 	void DrawArrows();
 
-	vector<std::tuple<Eigen::Vector3f, unsigned char, unsigned char, unsigned char>> pointInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, unsigned char, unsigned char,unsigned char>> lineInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, unsigned char, unsigned char, unsigned char>> triangleInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, unsigned char, unsigned char, unsigned char>> sphereInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, unsigned char, unsigned char, unsigned char>> cubeInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, unsigned char, unsigned char, unsigned char>> glyphInfosToDraw;
-	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, float, unsigned char, unsigned char, unsigned char>> arrowInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Color4>> pointInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Color4>> lineInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> triangleInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> sphereInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> cubeInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> glyphInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, float, Color4>> arrowInfosToDraw;
 };
