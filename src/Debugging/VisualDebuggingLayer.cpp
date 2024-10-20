@@ -1,6 +1,8 @@
 #include <Debugging/VisualDebuggingLayer.h>
 #include <Debugging/vtkPolygonalFrustumSource.h>
 
+#include <Algorithm/CustomPolyDataFilter.h>
+
 VisualDebuggingLayer::VisualDebuggingLayer(const string& layerName)
 	: layerName(layerName) {}
 
@@ -278,6 +280,94 @@ void VisualDebuggingLayer::Initialize(vtkSmartPointer<vtkRenderer> renderer)
 		renderer->AddActor(arrowActor);
 	}
 #pragma endregion
+
+#pragma region wiredBox
+	{
+		wiredBoxPolyData = vtkSmartPointer<vtkPolyData>::New();
+
+		vtkNew<vtkPoints> points;
+		wiredBoxPolyData->SetPoints(points);
+
+		vtkNew<vtkDoubleArray> scales;
+		scales->SetNumberOfComponents(3);
+		scales->SetName("Scales");
+		wiredBoxPolyData->GetPointData()->AddArray(scales);
+
+		vtkNew<vtkDoubleArray> normals;
+		normals->SetNumberOfComponents(3);
+		normals->SetName("Normals");
+		wiredBoxPolyData->GetPointData()->AddArray(normals);
+
+		vtkNew<vtkUnsignedCharArray> colors;
+		colors->SetName("Colors");
+		colors->SetNumberOfComponents(3);
+		wiredBoxPolyData->GetPointData()->AddArray(colors);
+
+		vtkNew<vtkPolyData> wiredBox;
+		vtkNew<vtkPoints> wiredBoxPoints;
+		vtkNew<vtkCellArray> wiredBoxLines;
+
+		auto pi0 = wiredBoxPoints->InsertNextPoint(-0.5f, -0.5f, -0.5f);
+		auto pi1 = wiredBoxPoints->InsertNextPoint(0.5f, -0.5f, -0.5f);
+		auto pi2 = wiredBoxPoints->InsertNextPoint(-0.5f, 0.5f, -0.5f);
+		auto pi3 = wiredBoxPoints->InsertNextPoint(0.5f, 0.5f, -0.5f);
+		auto pi4 = wiredBoxPoints->InsertNextPoint(-0.5f, -0.5f, 0.5f);
+		auto pi5 = wiredBoxPoints->InsertNextPoint(0.5f, -0.5f, 0.5f);
+		auto pi6 = wiredBoxPoints->InsertNextPoint(-0.5f, 0.5f, 0.5f);
+		auto pi7 = wiredBoxPoints->InsertNextPoint(0.5f, 0.5f, 0.5f);
+
+		vtkIdType pids[][2] = {
+			{pi0, pi1}, {pi1, pi3}, {pi3, pi2}, {pi2, pi0},
+			{pi4, pi5}, {pi5, pi7}, {pi7, pi6}, {pi6, pi4},
+			{pi0, pi4}, {pi1, pi5}, {pi2, pi6}, {pi3, pi7}
+		};
+		wiredBoxLines->InsertNextCell(2, pids[0]);
+		wiredBoxLines->InsertNextCell(2, pids[1]);
+		wiredBoxLines->InsertNextCell(2, pids[2]);
+		wiredBoxLines->InsertNextCell(2, pids[3]);
+		wiredBoxLines->InsertNextCell(2, pids[4]);
+		wiredBoxLines->InsertNextCell(2, pids[5]);
+		wiredBoxLines->InsertNextCell(2, pids[6]);
+		wiredBoxLines->InsertNextCell(2, pids[7]);
+		wiredBoxLines->InsertNextCell(2, pids[8]);
+		wiredBoxLines->InsertNextCell(2, pids[9]);
+		wiredBoxLines->InsertNextCell(2, pids[10]);
+		wiredBoxLines->InsertNextCell(2, pids[11]);
+
+		wiredBox->SetPoints(wiredBoxPoints);
+		wiredBox->SetLines(wiredBoxLines);
+		wiredBox->Modified();
+
+		vtkNew<CustomPolyDataFilter> wiredBoxSource;
+		wiredBoxSource->SetInputData(wiredBox);
+		wiredBoxSource->Update();
+
+		wiredBoxGlyph3D = vtkSmartPointer<vtkGlyph3D>::New();
+		wiredBoxGlyph3D->SetSourceConnection(wiredBoxSource->GetOutputPort());
+		wiredBoxGlyph3D->SetInputData(wiredBoxPolyData);
+		wiredBoxGlyph3D->SetScaleModeToScaleByScalar();
+		wiredBoxGlyph3D->SetColorModeToColorByScalar();
+
+		wiredBoxGlyph3D->SetInputArrayToProcess(
+			0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "Scales");
+		wiredBoxGlyph3D->SetInputArrayToProcess(
+			1, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "Normals");
+		wiredBoxGlyph3D->SetInputArrayToProcess(
+			3, 0, 0, vtkDataObject::FIELD_ASSOCIATION_POINTS, "Colors");
+		wiredBoxGlyph3D->Update();
+
+		wiredBoxPolyDataMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+		wiredBoxPolyDataMapper->SetInputConnection(wiredBoxGlyph3D->GetOutputPort());
+
+		wiredBoxActor = vtkSmartPointer<vtkActor>::New();
+		wiredBoxActor->SetMapper(wiredBoxPolyDataMapper);
+		// wiredBoxActor->GetProperty()->SetAmbient(1.0);
+		// wiredBoxActor->GetProperty()->SetDiffuse(0.0);
+		wiredBoxActor->SetObjectName(layerName + ".wiredBoxActor");
+
+		renderer->AddActor(wiredBoxActor);
+	}
+#pragma endregion
 }
 
 void VisualDebuggingLayer::Terminate()
@@ -412,6 +502,29 @@ void VisualDebuggingLayer::Terminate()
 		arrowActor = nullptr;
 	}
 #pragma endregion
+
+#pragma region WiredBox
+	if (nullptr != wiredBoxGlyph3D)
+	{
+		wiredBoxGlyph3D = nullptr;
+	}
+
+	if (nullptr != wiredBoxPolyData)
+	{
+		wiredBoxPolyData = nullptr;
+	}
+
+	if (nullptr != wiredBoxPolyDataMapper)
+	{
+		wiredBoxPolyDataMapper = nullptr;
+	}
+
+	if (nullptr != wiredBoxActor)
+	{
+		renderer->RemoveActor(wiredBoxActor);
+		wiredBoxActor = nullptr;
+	}
+#pragma endregion
 }
 
 void VisualDebuggingLayer::Update()
@@ -423,6 +536,7 @@ void VisualDebuggingLayer::Update()
 	DrawCubes();
 	DrawGlyphs();
 	DrawArrows();
+	DrawWiredBoxes();
 
 	// renderWindow->Render();
 }
@@ -472,6 +586,13 @@ void VisualDebuggingLayer::AddArrow(const Eigen::Vector3f& center, const Eigen::
 	arrowInfosToDraw.push_back(std::make_tuple(center, normal, scale, color));
 }
 
+void VisualDebuggingLayer::AddWiredBox(const Eigen::Vector3f& boxMin, const Eigen::Vector3f& boxMax, const Color4& color)
+{
+	Eigen::Vector3f center = (boxMin + boxMax) * 0.5f;
+	Eigen::Vector3f scale = boxMax - boxMin;
+	wiredBoxInfosToDraw.push_back(std::make_tuple(center, scale, color));
+}
+
 void VisualDebuggingLayer::ShowAll(bool show)
 {
 	ShowPoints(show);
@@ -480,6 +601,7 @@ void VisualDebuggingLayer::ShowAll(bool show)
 	ShowSpheres(show);
 	ShowCubes(show);
 	ShowArrows(show);
+	ShowWiredBoxes(show);
 }
 
 void VisualDebuggingLayer::ToggleVisibilityAll()
@@ -490,6 +612,7 @@ void VisualDebuggingLayer::ToggleVisibilityAll()
 	ToggleSpheres();
 	ToggleCubes();
 	ToggleArrows();
+	ToggleWiredBoxes();
 }
 
 void VisualDebuggingLayer::SetRepresentationAll(Representation representation)
@@ -500,6 +623,7 @@ void VisualDebuggingLayer::SetRepresentationAll(Representation representation)
 	SetRepresentationSpheres(representation);
 	SetRepresentationCubes(representation);
 	SetRepresentationArrows(representation);
+	SetRepresentationWiredBoxes(representation);
 }
 
 void VisualDebuggingLayer::ToggleAllRepresentation()
@@ -510,6 +634,7 @@ void VisualDebuggingLayer::ToggleAllRepresentation()
 	ToggleSpheresRepresentation();
 	ToggleCubesRepresentation();
 	ToggleArrowsRepresentation();
+	ToggleWiredBoxesRepresentation();
 }
 
 void VisualDebuggingLayer::ShowPoints(bool show)
@@ -701,6 +826,38 @@ void VisualDebuggingLayer::ToggleArrowsRepresentation()
 	if (nullptr != arrowActor)
 	{
 		ToggleActorRepresentation(renderer, arrowActor);
+	}
+}
+
+void VisualDebuggingLayer::ShowWiredBoxes(bool show)
+{
+	if (nullptr != wiredBoxActor)
+	{
+		ShowActor(renderer, wiredBoxActor, show);
+	}
+}
+
+void VisualDebuggingLayer::ToggleWiredBoxes()
+{
+	if (nullptr != wiredBoxActor)
+	{
+		ToggleActorVisibility(renderer, wiredBoxActor);
+	}
+}
+
+void VisualDebuggingLayer::SetRepresentationWiredBoxes(Representation representation)
+{
+	if (nullptr != wiredBoxActor)
+	{
+		SetActorRepresentation(renderer, wiredBoxActor, representation);
+	}
+}
+
+void VisualDebuggingLayer::ToggleWiredBoxesRepresentation()
+{
+	if (nullptr != wiredBoxActor)
+	{
+		ToggleActorRepresentation(renderer, wiredBoxActor);
 	}
 }
 
@@ -976,4 +1133,106 @@ void VisualDebuggingLayer::DrawArrows()
 	arrowGlyph3D->Update();
 
 	arrowInfosToDraw.clear();
+}
+
+void VisualDebuggingLayer::DrawWiredBoxes()
+{
+	if (wiredBoxInfosToDraw.empty())
+		return;
+
+	auto points = wiredBoxPolyData->GetPoints();
+	auto pointData = wiredBoxPolyData->GetPointData();
+	vtkDoubleArray* scales = vtkDoubleArray::SafeDownCast(pointData->GetArray("Scales"));
+	vtkDoubleArray* normals = vtkDoubleArray::SafeDownCast(pointData->GetArray("Normals"));
+	vtkUnsignedCharArray* colors = vtkUnsignedCharArray::SafeDownCast(pointData->GetArray("Colors"));
+
+	for (auto& wiredBoxInfo : wiredBoxInfosToDraw)
+	{
+		auto center = std::get<0>(wiredBoxInfo);
+		//auto normal = std::get<1>(wiredBoxInfo);
+		auto scale = std::get<1>(wiredBoxInfo);
+		auto color = std::get<2>(wiredBoxInfo);
+
+		points->InsertNextPoint(center.data());
+		scales->InsertNextTuple3(scale.x(), scale.y(), scale.z());
+		normals->InsertNextTuple3(0, 0, 1);
+		colors->InsertNextTypedTuple(color.data());
+	}
+
+	points->Modified();
+	wiredBoxGlyph3D->Update();
+
+	wiredBoxInfosToDraw.clear();
+	return;
+
+	//if (wiredBoxInfosToDraw.empty())
+	//	return;
+
+	//auto points = cubePolyData->GetPoints();
+	//auto pointData = cubePolyData->GetPointData();
+	//vtkDoubleArray* scales =
+	//	vtkDoubleArray::SafeDownCast(pointData->GetArray("Scales"));
+	//vtkDoubleArray* normals =
+	//	vtkDoubleArray::SafeDownCast(pointData->GetArray("Normals"));
+	//vtkUnsignedCharArray* colors =
+	//	vtkUnsignedCharArray::SafeDownCast(pointData->GetArray("Colors"));
+
+	//vtkNew<vtkPoints> points;
+	//vtkNew<vtkCellArray> lines;
+	//vtkNew<vtkUnsignedCharArray> colors;
+	//colors->SetNumberOfComponents(3);
+
+	//for (auto& cubeInfo : wiredBoxInfosToDraw)
+	//{
+	//	auto boxMin = std::get<0>(cubeInfo);
+	//	auto boxMax = std::get<1>(cubeInfo);
+	//	auto color = std::get<2>(cubeInfo);
+
+	//	auto pi0 = points->InsertNextPoint(boxMin.x(), boxMin.y(), boxMin.z());
+	//	auto pi1 = points->InsertNextPoint(boxMax.x(), boxMin.y(), boxMin.z());
+	//	auto pi2 = points->InsertNextPoint(boxMin.x(), boxMax.y(), boxMin.z());
+	//	auto pi3 = points->InsertNextPoint(boxMax.x(), boxMax.y(), boxMin.z());
+	//	auto pi4 = points->InsertNextPoint(boxMin.x(), boxMin.y(), boxMax.z());
+	//	auto pi5 = points->InsertNextPoint(boxMax.x(), boxMin.y(), boxMax.z());
+	//	auto pi6 = points->InsertNextPoint(boxMin.x(), boxMax.y(), boxMax.z());
+	//	auto pi7 = points->InsertNextPoint(boxMax.x(), boxMax.y(), boxMax.z());
+
+	//	vtkIdType pids[] = {
+	//		pi0, pi1, pi1, pi3, pi3, pi2, pi2, pi0,
+	//		pi4, pi5, pi5, pi7, pi7, pi6, pi6, pi4,
+	//		pi0, pi4, pi1, pi5, pi2, pi6, pi3, pi7
+	//	};
+
+	//	lines->InsertNextCell(12, pids);
+
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//	colors->InsertNextTypedTuple(color.data());
+	//}
+
+	//vtkSmartPointer<vtkPolyData> newWiredBoxLinePolyData =
+	//	vtkSmartPointer<vtkPolyData>::New();
+	//newWiredBoxLinePolyData->SetPoints(points);
+	//newWiredBoxLinePolyData->SetLines(lines);
+	//newWiredBoxLinePolyData->GetPointData()->SetScalars(colors);
+
+	//vtkSmartPointer<vtkAppendPolyData> appendFilter =
+	//	vtkSmartPointer<vtkAppendPolyData>::New();
+	//appendFilter->AddInputData(linePolyData);
+	//appendFilter->AddInputData(newWiredBoxLinePolyData);
+	//appendFilter->Update();
+
+	//linePolyData->ShallowCopy(appendFilter->GetOutput());
+
+	//lineInfosToDraw.clear();
+
+	//points->Modified();
+	//cubePolyDataMapper->Update();
+
+	//cubeInfosToDraw.clear();
 }

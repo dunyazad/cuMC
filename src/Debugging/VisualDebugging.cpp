@@ -323,6 +323,19 @@ vtkSmartPointer<vtkActor> VisualDebugging::GetArrowActor(const string& layerName
 	}
 }
 
+vtkSmartPointer<vtkActor> VisualDebugging::GetWiredBoxActor(const string& layerName)
+{
+	auto layer = GetLayer(layerName);
+	if (nullptr != layer)
+	{
+		return layer->GetWiredBoxActor();
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
 int VisualDebugging::GetNumberOfLayers()
 {
 	return (int)s_layers.size();
@@ -414,6 +427,19 @@ void VisualDebugging::AddArrow(const string& layerName, const Eigen::Vector3f& c
 	}
 
 	layer->AddArrow(center, normal, scale, color);
+
+	s_needToRender = true;
+}
+
+void VisualDebugging::AddWiredBox(const string& layerName, const Eigen::Vector3f& boxMin, const Eigen::Vector3f& boxMax, const Color4& color)
+{
+	auto layer = GetLayer(layerName);
+	if (nullptr == layer)
+	{
+		layer = CreateLayer(layerName);
+	}
+
+	layer->AddWiredBox(boxMin, boxMax, color);
 
 	s_needToRender = true;
 }

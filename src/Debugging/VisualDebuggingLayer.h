@@ -73,6 +73,8 @@ public:
 
 	void AddArrow(const Eigen::Vector3f& center, const Eigen::Vector3f& normal, float scale, const Color4& color);
 
+	void AddWiredBox(const Eigen::Vector3f& boxMin, const Eigen::Vector3f& boxMax, const Color4& color);
+
 	void Update();
 	void Clear();
 
@@ -80,30 +82,41 @@ public:
 	void ToggleVisibilityAll();
 	void SetRepresentationAll(Representation representation);
 	void ToggleAllRepresentation();
+
 	void ShowPoints(bool show);
 	void TogglePoints();
 	void SetRepresentationPoints(Representation representation);
 	void TogglePointsRepresentation();
+	
 	void ShowLines(bool show);
 	void ToggleLines();
 	void SetRepresentationLines(Representation representation);
 	void ToggleLinesRepresentation();
+	
 	void ShowTriangles(bool show);
 	void ToggleTriangles();
 	void SetRepresentationTriangles(Representation representation);
 	void ToggleTrianglesRepresentation();
+	
 	void ShowSpheres(bool show);
 	void ToggleSpheres();
 	void SetRepresentationSpheres(Representation representation);
 	void ToggleSpheresRepresentation();
+	
 	void ShowCubes(bool show);
 	void ToggleCubes();
 	void SetRepresentationCubes(Representation representation);
 	void ToggleCubesRepresentation();
+	
 	void ShowArrows(bool show);
 	void ToggleArrows();
 	void SetRepresentationArrows(Representation representation);
 	void ToggleArrowsRepresentation();
+
+	void ShowWiredBoxes(bool show);
+	void ToggleWiredBoxes();
+	void SetRepresentationWiredBoxes(Representation representation);
+	void ToggleWiredBoxesRepresentation();
 
 	float GetPointSize();
 	void SetPointSize(float size);
@@ -117,6 +130,7 @@ public:
 	inline vtkSmartPointer<vtkActor> GetCubeActor() { return cubeActor; }
 	inline vtkSmartPointer<vtkActor> GetGlyphActor() { return glyphActor; }
 	inline vtkSmartPointer<vtkActor> GetArrowActor() { return arrowActor; }
+	inline vtkSmartPointer<vtkActor> GetWiredBoxActor() { return wiredBoxActor; }
 
 private:
 	string layerName = "";
@@ -152,6 +166,11 @@ private:
 	vtkSmartPointer<vtkGlyph3D> arrowGlyph3D;
 	vtkSmartPointer<vtkPolyData> arrowPolyData;
 
+	vtkSmartPointer<vtkActor> wiredBoxActor;
+	vtkSmartPointer<vtkPolyDataMapper> wiredBoxPolyDataMapper;
+	vtkSmartPointer<vtkGlyph3D> wiredBoxGlyph3D;
+	vtkSmartPointer<vtkPolyData> wiredBoxPolyData;
+
 	void DrawPoints();
 	void DrawLines();
 	void DrawTriangle();
@@ -159,6 +178,7 @@ private:
 	void DrawCubes();
 	void DrawGlyphs();
 	void DrawArrows();
+	void DrawWiredBoxes();
 
 	vector<std::tuple<Eigen::Vector3f, Color4>> pointInfosToDraw;
 	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Color4>> lineInfosToDraw;
@@ -167,4 +187,5 @@ private:
 	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> cubeInfosToDraw;
 	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Eigen::Vector3f, Color4>> glyphInfosToDraw;
 	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, float, Color4>> arrowInfosToDraw;
+	vector<std::tuple<Eigen::Vector3f, Eigen::Vector3f, Color4>> wiredBoxInfosToDraw;
 };

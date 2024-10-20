@@ -41,6 +41,8 @@ set(source_list
     src/App/CustomTrackballStyle.cpp
     src/App/Utility.h
     src/App/Utility.cpp
+    src/Algorithm/CustomPolyDataFilter.h
+    src/Algorithm/CustomPolyDataFilter.cpp
     src/Algorithm/vtkMedianFilter.h
     src/Algorithm/vtkMedianFilter.cpp
     src/Algorithm/vtkQuantizingFilter.h

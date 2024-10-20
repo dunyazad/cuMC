@@ -5,6 +5,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
+#include <Algorithm/CustomPolyDataFilter.h>
 #include <Algorithm/vtkMedianFilter.h>
 #include <Algorithm/vtkQuantizingFilter.h>
 
@@ -151,7 +152,10 @@ int main()
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {100.0f, 0.0f, 0.0f}, Color4::Red);
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {0.0f, 100.0f, 0.0f}, Color4::Green);
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, {0.0f, 0.0f, 100.0f }, Color4::Blue);
-		});
+
+		VisualDebugging::AddWiredBox("wiredBox", { -1.0f, -1.0f, -1.0f }, { 1.0f, 1.0f, 1.0f }, Color4::White);
+	});
+
 	app.AddKeyPressCallback(OnKeyPress);
 	app.Run();
 
