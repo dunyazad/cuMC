@@ -342,10 +342,18 @@ void VisualDebuggingLayer::Initialize(vtkSmartPointer<vtkRenderer> renderer)
 		wiredBoxSource->SetInputData(wiredBox);
 		wiredBoxSource->Update();
 
+		vtkNew<vtkCubeSource> cubeSource;
+		cubeSource->Update();
+
+		//vtkNew<vtkBoxsour
+
 		wiredBoxGlyph3D = vtkSmartPointer<vtkGlyph3D>::New();
-		wiredBoxGlyph3D->SetSourceConnection(wiredBoxSource->GetOutputPort());
+		//wiredBoxGlyph3D->SetSourceConnection(wiredBoxSource->GetOutputPort());
+		wiredBoxGlyph3D->SetSourceConnection(cubeSource->GetOutputPort());
 		wiredBoxGlyph3D->SetInputData(wiredBoxPolyData);
 		wiredBoxGlyph3D->SetScaleModeToScaleByScalar();
+		//wiredBoxGlyph3D->SetVectorModeToUseVector();
+		//wiredBoxGlyph3D->SetScaleModeToScaleByVectorComponents();
 		wiredBoxGlyph3D->SetColorModeToColorByScalar();
 
 		wiredBoxGlyph3D->SetInputArrayToProcess(
@@ -1155,11 +1163,15 @@ void VisualDebuggingLayer::DrawWiredBoxes()
 
 		points->InsertNextPoint(center.data());
 		scales->InsertNextTuple3(scale.x(), scale.y(), scale.z());
-		normals->InsertNextTuple3(0, 0, 1);
+		normals->InsertNextTuple3(0, 0, 1.0f);
 		colors->InsertNextTypedTuple(color.data());
 	}
 
 	points->Modified();
+	scales->Modified();
+	normals->Modified();
+	colors->Modified();
+
 	wiredBoxGlyph3D->Update();
 
 	wiredBoxInfosToDraw.clear();
