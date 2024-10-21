@@ -8,7 +8,7 @@ namespace Eigen
 {
 	const Vector3f Vector3fZero = { 1.0f, 1.0f, 1.0f };
 	const Vector3f Vector3fOne = { 1.0f, 1.0f, 1.0f };
-	const Vector3f Vector3fMax = { FLT_MAX, FLT_MAX, FLT_MAX };
+	const Vector3f Vector3fMax = { Max.F, Max.F, Max.F };
 }
 
 class VisualDebugging {

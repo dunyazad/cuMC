@@ -31,6 +31,7 @@ set(cuda_source_list
 set(source_list
     src/main.cpp
     src/Common.h
+    src/Common.cpp
     src/stdHeaderFiles.h
     src/vtkHeaderFiles.h
     src/Color.h

@@ -13,7 +13,6 @@
 
 #include <CUDA/HashTable.cuh>
 
-
 void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData) {
 	vtkRenderWindowInteractor* interactor = static_cast<vtkRenderWindowInteractor*>(caller);
 	std::string key = interactor->GetKeySym();
@@ -139,6 +138,20 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	{
 	}
 }
+
+struct SVONode
+{
+	bool isLeaf = false;
+	size_t parentIndex = Max.UI64;
+	size_t childIndex[8] = { Max.UI64, Max.UI64, Max.UI64, Max.UI64, Max.UI64, Max.UI64, Max.UI64, Max.UI64 };
+	size_t voxelIndex = Max.UI64;
+};
+
+struct SVO
+{
+	size_t nodeBufferIndex = 0;
+	size_t rootIndex = Max.UI64;
+};
 
 int main()
 {
