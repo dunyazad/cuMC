@@ -1,5 +1,8 @@
 #pragma once
 
+#include <limits.h>
+#include <stdio.h>
+
 #include <chrono>
 #include <cstddef> // For std::byte
 #include <functional>
@@ -10,6 +13,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+#include <omp.h>
 
 #include <Windows.h>
 #include <shellapi.h>

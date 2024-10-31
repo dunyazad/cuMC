@@ -37,8 +37,11 @@ public:
 	static void Clear(const string& layerName);
 
 	static void ToggleVisibilityAll();
+	static void SetVisibilityAll(bool visible);
 	static void ToggleVisibility(const string& layerName);
+	static void SetVisibility(const string& layerName, bool visible);
 	static void ToggleVisibilityByIndex(int index);
+	static void SetVisibilityByIndex(int index, bool visible);
 	static void SetRepresentationAll(Representation representation);
 	static void SetRepresentation(const string& layerName, Representation representation);
 	static void SetRepresentationByIndex(int index, Representation representation);

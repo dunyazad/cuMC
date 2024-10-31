@@ -13,7 +13,7 @@ inline void ShowActor(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtk
 	if (nullptr != actor)
 	{
 		actor->SetVisibility(show);
-		renderer->GetRenderWindow()->Render();
+		//renderer->GetRenderWindow()->Render();
 	}
 }
 
@@ -22,7 +22,7 @@ inline void ToggleActorVisibility(vtkSmartPointer<vtkRenderer> renderer, vtkSmar
 	if (nullptr != actor)
 	{
 		actor->SetVisibility(!actor->GetVisibility());
-		renderer->GetRenderWindow()->Render();
+		//renderer->GetRenderWindow()->Render();
 	}
 }
 
@@ -31,7 +31,7 @@ inline void SetActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtkSma
 	if (nullptr != actor)
 	{
 		actor->GetProperty()->SetRepresentation(representation);
-		renderer->GetRenderWindow()->Render();
+		//renderer->GetRenderWindow()->Render();
 	}
 }
 
@@ -46,7 +46,7 @@ inline void ToggleActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtk
 			mode = VTK_POINTS;
 		}
 		actor->GetProperty()->SetRepresentation(mode);
-		renderer->GetRenderWindow()->Render();
+		//renderer->GetRenderWindow()->Render();
 	}
 }
 

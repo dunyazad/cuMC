@@ -75,6 +75,7 @@
 
 #include <vtkKdTree.h>
 
+#include <vtkDelaunay3D.h>
 #include <vtkPolyDataConnectivityFilter.h>
 #include <vtkVertexGlyphFilter.h>
 #include <vtkElevationFilter.h>

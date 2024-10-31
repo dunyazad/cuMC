@@ -101,6 +101,16 @@ void VisualDebugging::ToggleVisibilityAll()
 	s_needToRender = true;
 }
 
+void VisualDebugging::SetVisibilityAll(bool visible)
+{
+	for (auto layer : s_layers)
+	{
+		layer->ShowAll(visible);
+	}
+
+	s_needToRender = true;
+}
+
 void VisualDebugging::ToggleVisibility(const string& layerName)
 {
 	auto layer = GetLayer(layerName);
@@ -112,11 +122,32 @@ void VisualDebugging::ToggleVisibility(const string& layerName)
 	s_needToRender = true;
 }
 
+void VisualDebugging::SetVisibility(const string& layerName, bool visible)
+{
+	auto layer = GetLayer(layerName);
+	if (nullptr != layer)
+	{
+		layer->ShowAll(visible);
+	}
+
+	s_needToRender = true;
+}
+
 void VisualDebugging::ToggleVisibilityByIndex(int index)
 {
 	if (index < s_layers.size())
 	{
 		s_layers[index]->ToggleVisibilityAll();
+	}
+
+	s_needToRender = true;
+}
+
+void VisualDebugging::SetVisibilityByIndex(int index, bool visible)
+{
+	if (index < s_layers.size())
+	{
+		s_layers[index]->ShowAll(visible);
 	}
 
 	s_needToRender = true;

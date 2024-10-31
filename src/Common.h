@@ -1,8 +1,5 @@
 #pragma once
 
-#include <limits.h>
-#include <stdio.h>
-
 #include <stdHeaderFiles.h>
 #include <vtkHeaderFiles.h>
 
@@ -11,26 +8,40 @@ typedef unsigned char ubyte;
 class _MAX
 {
 public:
-	const unsigned char UINT8 = 0xFF;
-	const unsigned char UI8 = 0xFF;
-	const char INT8 = 0x7F;
-	const char I8 = 0x7F;
-	const unsigned short UINT16 = 0xFFFF;
-	const unsigned short UI16 = 0xFFFF;
-	const short INT16 = 0x7FFF;
-	const short I16 = 0x7FFF;
-	const unsigned int UINT32 = 0x7FFFFFFF;
-	const unsigned int UI32 = 0x7FFFFFFF;
-	const int INT32 = 0xFFFFFFFF;
-	const int I32 = 0xFFFFFFFF;
-	const unsigned long UINT64 = 0xFFFFFFFFFFFFFFFF;
-	const unsigned long UI64 = 0xFFFFFFFFFFFFFFFF;
-	const long INT64 = 0x7FFFFFFFFFFFFFFf;
-	const long I64 = 0x7FFFFFFFFFFFFFFf;
-	const float FLOAT = 0x7F7FFFFF;
-	const float F = 0x7F7FFFFF;
-	const float DOUBLE = 0x7FEFFFFFFFFFFFFF;
-	const float D = 0x7FEFFFFFFFFFFFFF;
+    // Maximum values for unsigned integer types
+    static constexpr unsigned char UINT8 = 0xFF; // 255
+    static constexpr unsigned char U8 = 0xFF;
+    static constexpr unsigned short UINT16 = 0xFFFF; // 65535
+    static constexpr unsigned short U16 = 0xFFFF;
+    static constexpr unsigned int UINT32 = 0xFFFFFFFF; // 4294967295
+    static constexpr unsigned int U32 = 0xFFFFFFFF;
+    static constexpr unsigned long long UINT64 = 0xFFFFFFFFFFFFFFFF; // 18446744073709551615
+    static constexpr unsigned long long U64 = 0xFFFFFFFFFFFFFFFF;
+
+    // Maximum values for signed integer types
+    static constexpr char INT8 = 0x7F; // 127
+    static constexpr char I8 = 0x7F;
+    static constexpr short INT16 = 0x7FFF; // 32767
+    static constexpr short I16 = 0x7FFF;
+    static constexpr int INT32 = 0x7FFFFFFF; // 2147483647
+    static constexpr int I32 = 0x7FFFFFFF;
+    static constexpr long long INT64 = 0x7FFFFFFFFFFFFFFF; // 9223372036854775807
+    static constexpr long long I64 = 0x7FFFFFFFFFFFFFFF;
+
+    // Maximum values for floating-point types
+    static constexpr float FLOAT = 3.402823e+38F; // FLT_MAX
+    static constexpr float F = 3.402823e+38F;
+    static constexpr double DOUBLE = 1.7976931348623158e+308; // DBL_MAX
+    static constexpr double D = 1.7976931348623158e+308;
 };
 
 extern _MAX Max;
+
+namespace Time
+{
+	chrono::steady_clock::time_point Now();
+
+    uint64_t Microseconds(chrono::steady_clock::time_point& from, chrono::steady_clock::time_point& now);
+
+    chrono::steady_clock::time_point End(chrono::steady_clock::time_point& from, const string& message = "");
+}
