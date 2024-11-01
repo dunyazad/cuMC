@@ -466,8 +466,6 @@ unsigned char image_45[400 * 480];
 Eigen::Vector3f points_0[400 * 480];
 Eigen::Vector3f points_45[400 * 480];
 Eigen::AlignedBox3f aabb(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
-Eigen::AlignedBox3f taabb(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
-Eigen::AlignedBox3f lmax(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 
 SVO::Octree* pOctree = nullptr;
 
@@ -516,9 +514,6 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 			points->InsertNextPoint(tp3.data());
 
 			aabb.extend(tp3);
-			taabb.extend(tp3);
-
-			lmax.extend(aabb.max() - aabb.min());
 
 			count++;
 
@@ -540,9 +535,6 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 			points->InsertNextPoint(tp3.data());
 
 			aabb.extend(tp3);
-			taabb.extend(tp3);
-
-			lmax.extend(aabb.max() - aabb.min());
 
 			count++;
 
@@ -553,7 +545,7 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	std::cout << aabb.min() << std::endl;
 	std::cout << aabb.max() << std::endl;
 
-	//VisualDebugging::AddCube("aabb", (aabb.min() + aabb.max()) * 0.5f, aabb.max() - aabb.min(), { 0.0f, 0.0f, 0.0f }, Color4::Red);
+	VisualDebugging::AddCube("aabb", (aabb.min() + aabb.max()) * 0.5f, aabb.max() - aabb.min(), { 0.0f, 0.0f, 0.0f }, Color4::Red);
 
 	vtkNew<vtkPolyData> polyData;
 	polyData->SetPoints(points);
@@ -1108,27 +1100,14 @@ int main()
 		//TestManaged(renderer);
 
 		{
-			//for (int i = 3; i < 244; i++)
-			int i = 3;
+			for (int i = 3; i < 244; i++)
+			//int i = 3;
 			{
 				auto te = Time::Now();
 				LoadPatch(i, renderer);
 				Time::End(te, "Loading PointCloud Patch");
 			}
-
-			cout << taabb.min() << endl;
-			cout << taabb.max() << endl;
-
-			cout << taabb.max() - taabb.min() << endl;
-
-			cout << "lmax : " << lmax.max() << endl;
 		}
-
-		//{
-		//	auto t = Time::Now();
-		//	AOctree::Test(inputPoints);
-		//	Time::End(t, "AOCtree::Test");
-		//}
 
 		//{
 		//	auto t = Time::Now();
@@ -1205,32 +1184,32 @@ int main()
 
 		//SVO::Octree* octree = new SVO::Octree;
 		//pOctree = octree;
-		//SVO::InitializeSVO(octree, inputPoints.size() * 13);
+		//SVO::InitializeSVO(octree, 3000000);
 
 		//Time::End(t0, "Initialize Octree");
 
 		//auto te = Time::Now();
-		//SVO::IntegratePointCloud(octree, inputPoints.data(), inputPoints.size(), 500.0f, 13);
+		//SVO::IntegratePointCloud(octree, inputPoints.data(), inputPoints.size(), 50.0f, 12);
 		//Time::End(te, "Integrate PointCloud Patches");
 		//
 		//printf("inputPoints.size() : %llu, octreeNodeCount : %llu\n", inputPoints.size(), octree->nodeBufferIndex);
 
-		////SVO::TraverseOctree(octree, [](const SVO::SVONode& node, int currentDepth) {
-		////	float halfSize = node.size * 0.5f;
+		//SVO::TraverseOctree(octree, [](const SVO::SVONode& node, int currentDepth) {
+		//	float halfSize = node.size * 0.5f;
 
-		////	stringstream ss;
-		////	ss << "WiredBox_" << currentDepth;
-		////	VisualDebugging::AddWiredBox(
-		////		ss.str(),
-		////		node.center - Eigen::Vector3f(halfSize, halfSize, halfSize),
-		////		node.center + Eigen::Vector3f(halfSize, halfSize, halfSize),
-		////		Color4::White);
-		////	});
+		//	stringstream ss;
+		//	ss << "WiredBox_" << currentDepth;
+		//	VisualDebugging::AddWiredBox(
+		//		ss.str(),
+		//		node.center - Eigen::Vector3f(halfSize, halfSize, halfSize),
+		//		node.center + Eigen::Vector3f(halfSize, halfSize, halfSize),
+		//		Color4::White);
+		//	});
 
-		////{
-		////	SVO::NearestNeighborResult result;
-		////	SVO::NearestNeighborDFS(octree, octree->rootIndex, { 3.0f, 3.0f, 3.0f }, result);
-		////}
+		//{
+		//	SVO::NearestNeighborResult result;
+		//	SVO::NearestNeighborDFS(octree, octree->rootIndex, { 3.0f, 3.0f, 3.0f }, result);
+		//}
 
 		////vector<SVO::Triangle> triangles;
 		////SVO::ExtractTrianglesFromOctree(octree, triangles);

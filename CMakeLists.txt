@@ -19,12 +19,19 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin/Release)
 
 # List of CUDA source files
 set(cuda_source_list
+    src/CUDA/CUDA_Common.cuh
+    src/CUDA/CUDA.cuh
+    src/CUDA/CUDA.cu
     src/CUDA/KDTree.cuh
     src/CUDA/KDTree.cu
+    src/CUDA/KDITree.cuh
+    src/CUDA/KDITree.cu
     src/CUDA/SVO.cuh
     src/CUDA/SVO.cu
     src/CUDA/HashTable.cuh
     src/CUDA/HashTable.cu
+    src/CUDA/AOCtree.cuh
+    src/CUDA/AOCtree.cu
 )
 
 # List of C++ source files
@@ -85,17 +92,6 @@ target_include_directories(cuMC PRIVATE
     ${CUDAToolkit_INCLUDE_DIRS}
 )
 
-target_include_directories(cuda_objects PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    "External"
-    "External/eigen"
-    "External/openvdb/nanovdb"
-    ${OPENVDB_INCLUDE_DIRS}
-    ${VTK_INCLUDE_DIRS}
-    ${CUDAToolkit_INCLUDE_DIRS}
-)
-
 target_link_libraries(cuMC PRIVATE OpenVDB::openvdb)
 target_link_libraries(cuMC PRIVATE ${VTK_LIBRARIES})
 target_link_libraries(cuMC PRIVATE ${PCL_LIBRARIES})
@@ -103,7 +99,8 @@ target_link_libraries(cuMC PRIVATE CUDA::cudart CUDA::cuda_driver)
 
 # Enable separable compilation if needed, or disable for faster builds
 set_target_properties(cuMC PROPERTIES
-    CUDA_SEPARABLE_COMPILATION OFF  # Change to ON if needed
+    CUDA_SEPARABLE_COMPILATION ON  # Change to ON if needed
+    CMAKE_CUDA_ARCHITECTURES "60;70;80"
     CUDA_STANDARD 11  # Adjust based on your CUDA version
 )
 

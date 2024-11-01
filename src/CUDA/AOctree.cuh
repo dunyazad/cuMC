@@ -12,12 +12,12 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-namespace Algorithm
+namespace AOctree
 {
-    struct OctreeNode {
-        bool isLeafNode;
-        int children[8];
-        int pointIdx;
+    struct AOctreeNode {
+        size_t children[8] = { UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX, UINT64_MAX };
+        size_t pointIdx = UINT64_MAX;
+        int lock = 0;
     };
 
 	void Test(const std::vector<Eigen::Vector3f>& inputPoints);
