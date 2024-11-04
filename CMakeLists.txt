@@ -32,6 +32,8 @@ set(cuda_source_list
     src/CUDA/HashTable.cu
     src/CUDA/AOCtree.cuh
     src/CUDA/AOCtree.cu
+    src/CUDA/Processing.cuh
+    src/CUDA/Processing.cu
 )
 
 # List of C++ source files

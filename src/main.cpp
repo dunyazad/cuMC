@@ -17,6 +17,8 @@
 #include <CUDA/SVO.cuh>
 #include <CUDA/AOctree.cuh>
 
+#include <CUDA/Processing.cuh>
+
 #include <CUDA/CUDA.cuh>
 
 int depthIndex = 0;
@@ -471,6 +473,7 @@ Eigen::AlignedBox3f lmax(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vect
 
 SVO::Octree* pOctree = nullptr;
 
+vector<Eigen::Vector3f> patchPoints;
 vector<Eigen::Vector3f> inputPoints;
 
 void LoadPatch(int patchID, vtkRenderer* renderer)
@@ -502,6 +505,9 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	aabb = Eigen::AlignedBox3f(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 
 	int count = 0;
+	
+	patchPoints.clear();
+
 	for (size_t i = 0; i < size_0; i++)
 	{
 		auto& p = points_0[i];
@@ -522,7 +528,7 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 
 			count++;
 
-			inputPoints.push_back(tp3);
+			patchPoints.push_back(tp3);
 		}
 	}
 
@@ -546,12 +552,16 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 
 			count++;
 
-			inputPoints.push_back(tp3);
+			patchPoints.push_back(tp3);
 		}
 	}
 
+	inputPoints.insert(inputPoints.end(), patchPoints.begin(), patchPoints.end());
+
 	std::cout << aabb.min() << std::endl;
 	std::cout << aabb.max() << std::endl;
+
+	return;
 
 	//VisualDebugging::AddCube("aabb", (aabb.min() + aabb.max()) * 0.5f, aabb.max() - aabb.min(), { 0.0f, 0.0f, 0.0f }, Color4::Red);
 
@@ -580,6 +590,7 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	mapper->SetInputData(vertexFilter->GetOutput());
 
 	vtkNew<vtkActor> actor;
+	actor->SetObjectName("points");
 	actor->SetMapper(mapper);
 
 	actor->GetProperty()->SetPointSize(5.0f);
@@ -590,6 +601,9 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 
 void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData) {
 	vtkRenderWindowInteractor* interactor = static_cast<vtkRenderWindowInteractor*>(caller);
+	vtkRenderWindow* renderWindow = interactor->GetRenderWindow();
+	vtkRenderer* renderer = renderWindow->GetRenderers()->GetFirstRenderer();
+
 	std::string key = interactor->GetKeySym();
 
 	printf("%s\n", key.c_str());
@@ -623,7 +637,7 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 		std::cout << "Key 'Escape' was pressed. Exiting." << std::endl;
 		interactor->TerminateApp();
 	}
-	else if (key == "space")
+	else if (key == "minus")
 	{
 		VisualDebugging::SetLineWidth("Spheres", 1);
 		vtkSmartPointer<vtkActor> actor = VisualDebugging::GetSphereActor("Spheres");
@@ -644,6 +658,33 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 			scale[0] *= 0.9;
 			scale[1] *= 0.9;
 			scale[2] *= 0.9;
+			scaleArray->SetTuple(i, scale);
+		}
+		polyData->Modified();
+		glyph3DMapper->SetScaleArray("Scales");
+		glyph3DMapper->Update();
+	}
+	else if (key == "equal")
+	{
+		VisualDebugging::SetLineWidth("Spheres", 1);
+		vtkSmartPointer<vtkActor> actor = VisualDebugging::GetSphereActor("Spheres");
+		vtkSmartPointer<vtkMapper> mapper = actor->GetMapper();
+		vtkSmartPointer<vtkPolyDataMapper> polyDataMapper =
+			vtkPolyDataMapper::SafeDownCast(mapper);
+		vtkSmartPointer<vtkGlyph3DMapper> glyph3DMapper = vtkGlyph3DMapper::SafeDownCast(mapper);
+		vtkSmartPointer<vtkPolyData> polyData = vtkPolyData::SafeDownCast(glyph3DMapper->GetInputDataObject(0, 0));
+		vtkSmartPointer<vtkPointData> pointData = polyData->GetPointData();
+		vtkSmartPointer<vtkDoubleArray> scaleArray =
+			vtkDoubleArray::SafeDownCast(pointData->GetArray("Scales"));
+		for (vtkIdType i = 0; i < scaleArray->GetNumberOfTuples(); ++i)
+		{
+			double scale[3]; // Assuming 3-component scale array (X, Y, Z)
+			scaleArray->GetTuple(i, scale);
+			//std::cout << "Scale for point " << i << ": "
+			//	<< scale[0 ] << ", " << scale[1] << ", " << scale[2] << std::endl;
+			scale[0] *= 1.1;
+			scale[1] *= 1.1;
+			scale[2] *= 1.1;
 			scaleArray->SetTuple(i, scale);
 		}
 		polyData->Modified();
@@ -707,11 +748,11 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	}
 	else if (key == "1")
 	{
-		VisualDebugging::ToggleVisibility("WiredBox_0");
+		VisualDebugging::ToggleVisibility("Original");
 	}
 	else if (key == "2")
 	{
-		VisualDebugging::ToggleVisibility("WiredBox_1");
+		VisualDebugging::ToggleVisibility("Result");
 	}
 	else if (key == "3")
 	{
@@ -778,6 +819,9 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 			ss << "WiredBox_" << depthIndex;
 			VisualDebugging::SetVisibility(ss.str(), true);
 		}
+	}
+	else if (key == "space")
+	{
 	}
 }
 
@@ -916,8 +960,8 @@ public:
 		std::vector<std::pair<float, int>> neighbors;
 		kNearestNeighborsRec(root, target, 0, k, neighbors);
 
-		// 결과 벡터에 인덱스를 추가
-		for (const auto& neighbor : neighbors) {
+		for (const auto& neighbor : neighbors)
+		{
 			results.push_back(neighbor.second);
 		}
 	}
@@ -1108,12 +1152,44 @@ int main()
 		//TestManaged(renderer);
 
 		{
+			Processing::PatchProcessor pp;
+			pp.Initialize(2000, 2000, 256 * 480);
+
 			//for (int i = 3; i < 244; i++)
 			int i = 3;
 			{
 				auto te = Time::Now();
 				LoadPatch(i, renderer);
 				Time::End(te, "Loading PointCloud Patch");
+
+				for (size_t i = 0; i < patchPoints.size(); i++)
+				{
+					auto& p = patchPoints[i];
+					VisualDebugging::AddSphere("Original", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
+				}
+
+				{
+					float sampleSize = 0.1f;
+
+					printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
+
+					auto t = Time::Now();
+
+					pp.MedianFilter(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+					t = Time::End(t, "MedianFilter");
+
+					printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+					for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
+					{
+						auto& p = pp.h_resultPoints[i];
+
+						//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
+
+						VisualDebugging::AddSphere("Result", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+					}
+				}
 			}
 
 			cout << taabb.min() << endl;
@@ -1122,7 +1198,59 @@ int main()
 			cout << taabb.max() - taabb.min() << endl;
 
 			cout << "lmax : " << lmax.max() << endl;
+
+			/*{
+				printf("[[[ inputPoints.size() ]]] : %llu\n", inputPoints.size());
+
+				Processing::PatchProcessor pp;
+				pp.Initialize(2000, 2000, 256 * 480);
+
+				pp.DeallocatedBuffers();
+
+				auto t = Time::Now();
+
+				pp.MedianFilter(inputPoints.data(), inputPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+				t = Time::End(t, "DownSample");
+
+				printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+				for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
+				{
+					auto& p = pp.h_resultPoints[i];
+
+					p += Eigen::Vector3f(0.0f, 10.0f, 0.0f);
+
+					VisualDebugging::AddSphere("p", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+				}
+			}*/
+
+
+			//auto t = Time::Now();
+
+			//Processing::PointCloud pointCloud;
+			//cudaMalloc(&pointCloud.points, sizeof(Eigen::Vector3f) * inputPoints.size());
+			//cudaMemcpy(pointCloud.points, inputPoints.data(), sizeof(Eigen::Vector3f) * inputPoints.size(), cudaMemcpyHostToDevice);
+			//cudaDeviceSynchronize();
+
+			//pointCloud.numberOfPoints = inputPoints.size();
+			//pointCloud.pointMin = taabb.min();
+			//pointCloud.pointMax = taabb.max();
+
+			//auto result = Processing::DownSample(pointCloud, sampleSize);
+
+			//t = Time::End(t, "DownSample");
+
+			//for (size_t i = 0; i < result.numberOfPoints; i++)
+			//{
+			//	auto& p = result.points[i];
+
+			//	VisualDebugging::AddSphere("p", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+			//}
 		}
+
+
+		return;
 
 		//{
 		//	auto t = Time::Now();
