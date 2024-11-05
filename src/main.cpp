@@ -752,11 +752,11 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	}
 	else if (key == "2")
 	{
-		VisualDebugging::ToggleVisibility("Result");
+		VisualDebugging::ToggleVisibility("DownSample");
 	}
 	else if (key == "3")
 	{
-		VisualDebugging::ToggleVisibility("WiredBox_2");
+		VisualDebugging::ToggleVisibility("Filter");
 	}
 	else if (key == "4")
 	{
@@ -1157,6 +1157,7 @@ int main()
 
 			//for (int i = 3; i < 244; i++)
 			int i = 3;
+			//for (int i = 14; i < 15; i++)
 			{
 				auto te = Time::Now();
 				LoadPatch(i, renderer);
@@ -1166,6 +1167,29 @@ int main()
 				{
 					auto& p = patchPoints[i];
 					VisualDebugging::AddSphere("Original", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
+				}
+
+				{
+					float sampleSize = 0.1f;
+
+					printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
+
+					auto t = Time::Now();
+
+					pp.DownSample(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+					t = Time::End(t, "DownSampling");
+
+					printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+					for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
+					{
+						auto& p = pp.h_resultPoints[i];
+
+						//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
+
+						VisualDebugging::AddSphere("DownSample", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
+					}
 				}
 
 				{
@@ -1187,7 +1211,7 @@ int main()
 
 						//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
 
-						VisualDebugging::AddSphere("Result", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+						VisualDebugging::AddSphere("Filter", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
 					}
 				}
 			}
