@@ -5,8 +5,6 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-#include <Algorithm/Octree.hpp>
-
 #include <Algorithm/CustomPolyDataFilter.h>
 #include <Algorithm/vtkMedianFilter.h>
 #include <Algorithm/vtkQuantizingFilter.h>
@@ -170,7 +168,7 @@ namespace SVO
 				if (currentDepth > octree->maxDepth)
 				{
 					octree->maxDepth = currentDepth;
-					printf("octree->maxDepth : %llu\n", octree->maxDepth);
+					printf("octree->maxDepth : %d\n", octree->maxDepth);
 				}
 			}
 
@@ -473,8 +471,9 @@ Eigen::AlignedBox3f aabb(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vect
 Eigen::AlignedBox3f taabb(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 Eigen::AlignedBox3f lmax(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 
-vector<Eigen::Vector3f> patchPoints_0;
-vector<Eigen::Vector3f> patchPoints_45;
+SVO::Octree* pOctree = nullptr;
+
+vector<Eigen::Vector3f> patchPoints;
 vector<Eigen::Vector3f> inputPoints;
 
 void LoadPatch(int patchID, vtkRenderer* renderer)
@@ -506,9 +505,8 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	aabb = Eigen::AlignedBox3f(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX));
 
 	int count = 0;
-
-	patchPoints_0.clear();
-	patchPoints_45.clear();
+	
+	patchPoints.clear();
 
 	for (size_t i = 0; i < size_0; i++)
 	{
@@ -517,8 +515,6 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 		if ((p.x() > -1000 && p.y() > -1000 && p.z() > -1000) &&
 			(p.x() < 1000 && p.y() < 1000 && p.z() < 1000))
 		{
-			patchPoints_0.push_back(p);
-			
 			Eigen::Vector4f p4(p.x(), p.y(), p.z(), 1.0f);
 			Eigen::Vector4f tp = t0 * p4;
 			Eigen::Vector3f tp3 = Eigen::Vector3f(tp.x(), tp.y(), tp.z());
@@ -530,9 +526,9 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 
 			lmax.extend(aabb.max() - aabb.min());
 
-			inputPoints.push_back(tp3);
-
 			count++;
+
+			patchPoints.push_back(tp3);
 		}
 	}
 
@@ -543,8 +539,6 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 		if ((p.x() > -1000 && p.y() > -1000 && p.z() > -1000) &&
 			(p.x() < 1000 && p.y() < 1000 && p.z() < 1000))
 		{
-			patchPoints_45.push_back(p);
-	
 			Eigen::Vector4f p4(p.x(), p.y(), p.z(), 1.0f);
 			Eigen::Vector4f tp = t45 * p4;
 			Eigen::Vector3f tp3 = Eigen::Vector3f(tp.x(), tp.y(), tp.z());
@@ -555,12 +549,14 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 			taabb.extend(tp3);
 
 			lmax.extend(aabb.max() - aabb.min());
-	
-			inputPoints.push_back(tp3);
 
 			count++;
+
+			patchPoints.push_back(tp3);
 		}
 	}
+
+	inputPoints.insert(inputPoints.end(), patchPoints.begin(), patchPoints.end());
 
 	std::cout << aabb.min() << std::endl;
 	std::cout << aabb.max() << std::endl;
@@ -764,7 +760,7 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	}
 	else if (key == "4")
 	{
-		VisualDebugging::ToggleVisibility("OctreeNode");
+		VisualDebugging::ToggleVisibility("WiredBox_3");
 	}
 	else if (key == "5")
 	{
@@ -795,32 +791,32 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 		depthIndex--;
 		if (depthIndex < 0) depthIndex = 0;
 
-		for (int i = 0; i < 14; i++)
+		for (int i = 0; i < pOctree->maxDepth; i++)
 		{
 			stringstream ss;
-			ss << "Cubes_" << i;
+			ss << "WiredBox_" << i;
 			VisualDebugging::SetVisibility(ss.str(), false);
 		}
 		{
 			stringstream ss;
-			ss << "Cubes_" << depthIndex;
+			ss << "WiredBox_" << depthIndex;
 			VisualDebugging::SetVisibility(ss.str(), true);
 		}
 	}
 	else if (key == "Right")
 	{
 		depthIndex++;
-		if (depthIndex > 14) depthIndex = 13;
+		if (depthIndex > pOctree->maxDepth) depthIndex = pOctree->maxDepth;
 
-		for (int i = 0; i < 14; i++)
+		for (int i = 0; i < pOctree->maxDepth; i++)
 		{
 			stringstream ss;
-			ss << "Cubes_" << i;
+			ss << "WiredBox_" << i;
 			VisualDebugging::SetVisibility(ss.str(), false);
 		}
 		{
 			stringstream ss;
-			ss << "Cubes_" << depthIndex;
+			ss << "WiredBox_" << depthIndex;
 			VisualDebugging::SetVisibility(ss.str(), true);
 		}
 	}
@@ -829,71 +825,323 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	}
 }
 
-struct Voxel
+vector<Eigen::Vector3f> GaussianBlur(const vector<Eigen::Vector3f>& pointCloud, double radius, double sigma) {
+	vector<Eigen::Vector3f> blurredPointCloud(pointCloud.size());
+
+	// Parameters
+	double sigmaSq = sigma * sigma;
+
+	// For each point in the point cloud
+	for (size_t i = 0; i < pointCloud.size(); ++i) {
+		Eigen::Vector3f newPos = Eigen::Vector3f::Zero();
+		double weightSum = 0.0;
+
+		for (size_t j = 0; j < pointCloud.size(); ++j) {
+			if (i == j) continue;  // Skip itself
+
+			// Compute distance between points i and j
+			double distance = (pointCloud[i] - pointCloud[j]).norm();
+
+			// If point j is within the specified radius
+			if (distance < radius) {
+				// Compute Gaussian weight
+				double weight = std::exp(-(distance * distance) / (2 * sigmaSq));
+				weightSum += weight;
+
+				// Apply weight to the neighbor point's position
+				newPos += weight * pointCloud[j];
+			}
+		}
+
+		// Normalize to get the blurred position
+		if (weightSum > 0) {
+			newPos /= weightSum;
+		}
+		else {
+			newPos = pointCloud[i];  // No neighbors, keep original position
+		}
+
+		// Assign new blurred position to the result
+		blurredPointCloud[i] = newPos;
+	}
+
+	return blurredPointCloud;
+}
+
+void TestManaged(vtkRenderer* renderer)
 {
-	Eigen::Vector3f position = { FLT_MAX, FLT_MAX, FLT_MAX };
-	Eigen::Vector3f normal = { FLT_MAX, FLT_MAX, FLT_MAX };
-	float tsdf = FLT_MAX;
-	float weight = 0.0f;
+	auto tct = Time::Now();
+	auto grid = CUDATest();
+	Time::End(tct, "CUDATest()");
+
+	auto ta = Time::Now();
+	vector<Eigen::Vector3f> dpoints;
+	for (size_t i = 0; i < 500 * 500 * 500; i++)
+	{
+		auto voxel = grid[i];
+
+		if (voxel.value < 1.0f)
+		{
+			dpoints.push_back(Eigen::Vector3f(voxel.x, voxel.y, voxel.z));
+		}
+	}
+	Time::End(ta, "Access");
+
+	vtkNew<vtkPoints> points;
+
+	for (size_t i = 0; i < dpoints.size(); i++)
+	{
+		auto& p = dpoints[i];
+		points->InsertNextPoint(p.x(), p.y(), p.z());
+		//VisualDebugging::AddSphere("Spheres", { p.x(), p.y(), p.z() }, { 0.01f, 0.01f, 0.01f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
+	}
+
+	vtkNew<vtkPolyData> polyData;
+	polyData->SetPoints(points);
+
+	vtkNew<vtkVertexGlyphFilter> vertexFilter;
+	vertexFilter->SetInputData(polyData);
+	vertexFilter->Update();
+
+	vtkNew<vtkPolyDataMapper> mapper;
+	mapper->SetInputData(vertexFilter->GetOutput());
+
+	vtkNew<vtkActor> actor;
+	actor->SetMapper(mapper);
+
+	actor->GetProperty()->SetPointSize(0.05f);
+	actor->GetProperty()->SetColor(1.0, 1.0, 1.0);
+
+	renderer->AddActor(actor);
+
+	cudaFree(grid);
+}
+
+struct kdiNode {
+	int index; // points 배열에서의 인덱스를 저장
+	kdiNode* left;
+	kdiNode* right;
 };
 
-struct VoxelKey
-{
-	int x = 0;
-	int y = 0;
-	int z = 0;
+class kdiTree {
+public:
+	kdiTree(Eigen::Vector3f* points, int size) : points(points), size(size) {
+		std::vector<int> indices(size);
+		for (int i = 0; i < size; ++i) {
+			indices[i] = i;
+		}
+		root = buildTree(indices.data(), indices.data() + size, 0);
+	}
 
-	bool operator==(const VoxelKey& other) const {
-		return x == other.x && y == other.y && z == other.z;
+	~kdiTree() {
+		destroyTree(root);
+	}
+
+	// 범위 검색 함수 추가
+	void rangeSearch(const Eigen::Vector3f& min, const Eigen::Vector3f& max, std::vector<int>& results) const {
+		rangeSearchRec(root, min, max, 0, results);
+	}
+
+	// 반경 검색 함수 추가
+	void radiusSearch(const Eigen::Vector3f& center, float radius, std::vector<int>& results) const {
+		radiusSearchRec(root, center, radius, 0, results);
+	}
+
+	// 최근접 이웃 검색 함수 추가
+	int nearestNeighbor(const Eigen::Vector3f& target) const {
+		float bestDist = std::numeric_limits<float>::max();
+		int bestIndex = -1;
+		nearestNeighborRec(root, target, 0, bestDist, bestIndex);
+		return bestIndex;
+	}
+
+	// k-최근접 이웃 검색 함수 추가
+	void kNearestNeighbors(const Eigen::Vector3f& target, int k, std::vector<int>& results) const {
+		std::vector<std::pair<float, int>> neighbors;
+		kNearestNeighborsRec(root, target, 0, k, neighbors);
+
+		for (const auto& neighbor : neighbors)
+		{
+			results.push_back(neighbor.second);
+		}
+	}
+
+	// k-최근접 이웃 중 반경 내 검색 함수 추가
+	void kNearestNeighborsWithinRadius(const Eigen::Vector3f& target, int k, float radius, std::vector<int>& results) const {
+		std::vector<std::pair<float, int>> neighbors;
+		kNearestNeighborsRec(root, target, 0, k, neighbors);
+
+		// 반경 내의 이웃들만 결과에 추가
+		for (const auto& neighbor : neighbors) {
+			if (std::sqrt(neighbor.first) <= radius) {
+				results.push_back(neighbor.second);
+			}
+		}
+	}
+
+	// k-최근접 이웃 중 범위 내 검색 함수 추가
+	void kNearestNeighborsWithinRange(const Eigen::Vector3f& target, int k, const Eigen::Vector3f& min, const Eigen::Vector3f& max, std::vector<int>& results) const {
+		std::vector<std::pair<float, int>> neighbors;
+		kNearestNeighborsRec(root, target, 0, k, neighbors);
+
+		// 범위 내의 이웃들만 결과에 추가
+		for (const auto& neighbor : neighbors) {
+			const Eigen::Vector3f& point = points[neighbor.second];
+			bool inRange = true;
+			for (int i = 0; i < 3; ++i) {
+				if (point[i] < min[i] || point[i] > max[i]) {
+					inRange = false;
+					break;
+				}
+			}
+			if (inRange) {
+				results.push_back(neighbor.second);
+			}
+		}
+	}
+
+private:
+	kdiNode* root;
+	Eigen::Vector3f* points;
+	int size;
+
+	kdiNode* buildTree(int* start, int* end, int depth) {
+		if (start >= end) {
+			return nullptr;
+		}
+
+		int axis = depth % 3; // 3차원 공간이므로 0, 1, 2 축 반복
+		int* mid = start + (end - start) / 2;
+
+		// 중간값을 찾기 위해 정렬 수행
+		std::nth_element(start, mid, end, [this, axis](int lhs, int rhs) {
+			return points[lhs][axis] < points[rhs][axis];
+			});
+
+		// 새로운 노드 생성 및 초기화
+		kdiNode* node = new kdiNode;
+		node->index = *mid;
+		node->left = buildTree(start, mid, depth + 1);  // 왼쪽 서브트리 재귀 호출
+		node->right = buildTree(mid + 1, end, depth + 1); // 오른쪽 서브트리 재귀 호출
+
+		return node;
+	}
+
+	void destroyTree(kdiNode* node) {
+		if (node != nullptr) {
+			destroyTree(node->left);
+			destroyTree(node->right);
+			delete node;
+		}
+	}
+
+	void rangeSearchRec(kdiNode* node, const Eigen::Vector3f& min, const Eigen::Vector3f& max, int depth, std::vector<int>& results) const {
+		if (node == nullptr) {
+			return;
+		}
+
+		const Eigen::Vector3f& point = points[node->index];
+		bool inRange = true;
+		for (int i = 0; i < 3; ++i) {
+			if (point[i] < min[i] || point[i] > max[i]) {
+				inRange = false;
+				break;
+			}
+		}
+
+		if (inRange) {
+			results.push_back(node->index);
+		}
+
+		int axis = depth % 3;
+		if (point[axis] >= min[axis]) {
+			rangeSearchRec(node->left, min, max, depth + 1, results);
+		}
+		if (point[axis] <= max[axis]) {
+			rangeSearchRec(node->right, min, max, depth + 1, results);
+		}
+	}
+
+	void radiusSearchRec(kdiNode* node, const Eigen::Vector3f& center, float radius, int depth, std::vector<int>& results) const {
+		if (node == nullptr) {
+			return;
+		}
+
+		const Eigen::Vector3f& point = points[node->index];
+		float distance = (point - center).norm();
+		if (distance <= radius) {
+			results.push_back(node->index);
+		}
+
+		int axis = depth % 3;
+		float diff = center[axis] - point[axis];
+
+		if (diff <= radius) {
+			radiusSearchRec(node->left, center, radius, depth + 1, results);
+		}
+		if (diff >= -radius) {
+			radiusSearchRec(node->right, center, radius, depth + 1, results);
+		}
+	}
+
+	void nearestNeighborRec(kdiNode* node, const Eigen::Vector3f& target, int depth, float& bestDist, int& bestIndex) const {
+		if (node == nullptr) {
+			return;
+		}
+
+		const Eigen::Vector3f& point = points[node->index];
+		float distance = (point - target).squaredNorm();
+		if (distance < bestDist) {
+			bestDist = distance;
+			bestIndex = node->index;
+		}
+
+		int axis = depth % 3;
+		float diff = target[axis] - point[axis];
+
+		kdiNode* nearChild = (diff < 0) ? node->left : node->right;
+		kdiNode* farChild = (diff < 0) ? node->right : node->left;
+
+		nearestNeighborRec(nearChild, target, depth + 1, bestDist, bestIndex);
+
+		if (diff * diff < bestDist) {
+			nearestNeighborRec(farChild, target, depth + 1, bestDist, bestIndex);
+		}
+	}
+
+	void kNearestNeighborsRec(kdiNode* node, const Eigen::Vector3f& target, int depth, int k, std::vector<std::pair<float, int>>& neighbors) const {
+		if (node == nullptr) {
+			return;
+		}
+
+		const Eigen::Vector3f& point = points[node->index];
+		float distance = (point - target).squaredNorm();
+
+		if (neighbors.size() < k) {
+			neighbors.emplace_back(distance, node->index);
+		}
+		else {
+			auto maxIt = std::max_element(neighbors.begin(), neighbors.end());
+			if (distance < maxIt->first) {
+				*maxIt = std::make_pair(distance, node->index);
+			}
+		}
+
+		int axis = depth % 3;
+		float diff = target[axis] - point[axis];
+
+		kdiNode* nearChild = (diff < 0) ? node->left : node->right;
+		kdiNode* farChild = (diff < 0) ? node->right : node->left;
+
+		kNearestNeighborsRec(nearChild, target, depth + 1, k, neighbors);
+
+		auto maxIt = std::max_element(neighbors.begin(), neighbors.end());
+		if (neighbors.size() < k || diff * diff < maxIt->first) {
+			kNearestNeighborsRec(farChild, target, depth + 1, k, neighbors);
+		}
 	}
 };
 
-// std::hash 특수화
-//namespace std {
-//	template <>
-//	struct hash<VoxelKey> {
-//		std::size_t operator()(const VoxelKey& key) const {
-//			// 해시 값을 계산하는 방법 정의 (단순 예제)
-//			return ((std::hash<int>()(key.x) ^ (std::hash<int>()(key.y) << 1)) >> 1) ^ (std::hash<int>()(key.z) << 1);
-//		}
-//	};
-//}
-
-namespace std {
-	template <>
-	struct hash<VoxelKey> {
-		std::size_t operator()(const VoxelKey& key) const {
-			// 해시 값을 생성할 때 seed 값을 활용하여 결합
-			std::size_t seed = 0;
-			hash_combine(seed, key.x);
-			hash_combine(seed, key.y);
-			hash_combine(seed, key.z);
-			return seed;
-		}
-
-		// 해시 결합을 위한 함수 (boost 라이브러리의 해시 결합과 비슷하게 구현)
-		static void hash_combine(std::size_t& seed, int value) {
-			// 정수 해싱에 적합한 'magic number'와 XOR, bitwise 연산을 사용하여 해시값을 결합
-			std::hash<int> hasher;
-			seed ^= hasher(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-		}
-	};
-}
-
-unordered_map<VoxelKey, Voxel> voxels;
-
-VoxelKey GetKey(const Eigen::Vector3f& position, float voxelSize = 0.1f)
-{
-	int x = static_cast<int>(floorf(position.x() / voxelSize));
-	int y = static_cast<int>(floorf(position.y() / voxelSize));
-	int z = static_cast<int>(floorf(position.z() / voxelSize));
-	return { x, y, z };
-}
-
-Eigen::Vector3f GetPosition(const VoxelKey& key, float voxelSize = 0.1f)
-{
-	return { (float)key.x * voxelSize, (float)key.y * voxelSize, (float)key.z * voxelSize };
-}
 
 int main()
 {
@@ -901,15 +1149,11 @@ int main()
 	app.AddAppStartCallback([&](App* pApp) {
 		auto renderer = pApp->GetRenderer();
 
-		auto t = Time::Now();
-
-		CUDA::cuCache cache;
-
-		t = Time::End(t, "Cache Initialize");
+		//TestManaged(renderer);
 
 		{
-			//Processing::PatchProcessor pp;
-			//pp.Initialize(2000, 2000, 256 * 480);
+			Processing::PatchProcessor pp;
+			pp.Initialize(2000, 2000, 256 * 480);
 
 			//for (int i = 3; i < 244; i++)
 			int i = 3;
@@ -919,270 +1163,341 @@ int main()
 				LoadPatch(i, renderer);
 				Time::End(te, "Loading PointCloud Patch");
 
-				//for (size_t i = 0; i < patchPoints.size(); i++)
-				//{
-				//	auto& p = patchPoints[i];
-				//	VisualDebugging::AddSphere("Original", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
-				//}
-
+				for (size_t i = 0; i < patchPoints.size(); i++)
 				{
-					Eigen::Vector3f* points;
-					cudaMalloc(&points, sizeof(Eigen::Vector3f) * patchPoints_0.size());
-					cudaMemcpy(points, patchPoints_0.data(), sizeof(Eigen::Vector3f) * patchPoints_0.size(), cudaMemcpyHostToDevice);
-
-					t = Time::Now();
-					cache.Integrate(taabb.min() - Eigen::Vector3f::Ones(), Eigen::Matrix4f(transform_0), inputPoints.size(), points, nullptr, nullptr);
-					Time::End(te, "Cache Integrate 0");
-				}
-				{
-					Eigen::Vector3f* points;
-					cudaMalloc(&points, sizeof(Eigen::Vector3f) * patchPoints_45.size());
-					cudaMemcpy(points, patchPoints_45.data(), sizeof(Eigen::Vector3f) * patchPoints_45.size(), cudaMemcpyHostToDevice);
-
-					t = Time::Now();
-					cache.Integrate(taabb.min() - Eigen::Vector3f::Ones(), Eigen::Matrix4f(transform_45), inputPoints.size(), points, nullptr, nullptr);
-					Time::End(te, "Cache Integrate 45");
+					auto& p = patchPoints[i];
+					VisualDebugging::AddSphere("Original", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
 				}
 
-				for (int z = 0; z < cache.cacheSize.z; z++)
 				{
-					for (int y = 0; y < cache.cacheSize.y; y++)
+					float sampleSize = 0.1f;
+
+					printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
+
+					auto t = Time::Now();
+
+					pp.DownSample(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+					t = Time::End(t, "DownSampling");
+
+					printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+					for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
 					{
-						for (int x = 0; x < cache.cacheSize.x; x++)
-						{
-							int index = z * cache.cacheSize.z * cache.cacheSize.y + y* cache.cacheSize.x + x;
-							auto& voxel = cache.cache[index];
+						auto& p = pp.h_resultPoints[i];
 
-							if (voxel.weight != 0.0f)
-							{
-								float px = cache.cacheMin.x() + x * cache.voxelSize;
-								float py = cache.cacheMin.y() + y * cache.voxelSize;
-								float pz = cache.cacheMin.z() + z * cache.voxelSize;
+						//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
 
-								VisualDebugging::AddCube("Voxel", {px, py, pz}, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
-							}
-						}
+						VisualDebugging::AddSphere("DownSample", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
+					}
+				}
+
+				{
+					float sampleSize = 0.1f;
+
+					printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
+
+					auto t = Time::Now();
+
+					pp.MedianFilter(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+					t = Time::End(t, "MedianFilter");
+
+					printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+					for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
+					{
+						auto& p = pp.h_resultPoints[i];
+
+						//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
+
+						VisualDebugging::AddSphere("Filter", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
 					}
 				}
 			}
 
+			cout << taabb.min() << endl;
+			cout << taabb.max() << endl;
+
+			cout << taabb.max() - taabb.min() << endl;
+
+			cout << "lmax : " << lmax.max() << endl;
+
+			/*{
+				printf("[[[ inputPoints.size() ]]] : %llu\n", inputPoints.size());
+
+				Processing::PatchProcessor pp;
+				pp.Initialize(2000, 2000, 256 * 480);
+
+				pp.DeallocatedBuffers();
+
+				auto t = Time::Now();
+
+				pp.MedianFilter(inputPoints.data(), inputPoints.size(), sampleSize, taabb.min(), taabb.max());
+
+				t = Time::End(t, "DownSample");
+
+				printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
+
+				for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
+				{
+					auto& p = pp.h_resultPoints[i];
+
+					p += Eigen::Vector3f(0.0f, 10.0f, 0.0f);
+
+					VisualDebugging::AddSphere("p", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+				}
+			}*/
+
+
+			//auto t = Time::Now();
+
+			//Processing::PointCloud pointCloud;
+			//cudaMalloc(&pointCloud.points, sizeof(Eigen::Vector3f) * inputPoints.size());
+			//cudaMemcpy(pointCloud.points, inputPoints.data(), sizeof(Eigen::Vector3f) * inputPoints.size(), cudaMemcpyHostToDevice);
+			//cudaDeviceSynchronize();
+
+			//pointCloud.numberOfPoints = inputPoints.size();
+			//pointCloud.pointMin = taabb.min();
+			//pointCloud.pointMax = taabb.max();
+
+			//auto result = Processing::DownSample(pointCloud, sampleSize);
+
+			//t = Time::End(t, "DownSample");
+
+			//for (size_t i = 0; i < result.numberOfPoints; i++)
 			//{
-			//	float sampleSize = 0.1f;
+			//	auto& p = result.points[i];
 
-			//	printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
-
-			//	auto t = Time::Now();
-
-			//	pp.DownSample(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
-
-			//	t = Time::End(t, "DownSampling");
-
-			//	printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
-
-			//	//for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
-			//	//{
-			//	//	auto& p = pp.h_resultPoints[i];
-
-			//	//	//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
-
-			//	//	VisualDebugging::AddSphere("DownSample", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
-			//	//}
-			//}
-
-			//{
-			//	float sampleSize = 0.1f;
-
-			//	printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints.size());
-
-			//	auto t = Time::Now();
-
-			//	pp.MedianFilter(patchPoints.data(), patchPoints.size(), sampleSize, taabb.min(), taabb.max());
-
-			//	t = Time::End(t, "MedianFilter");
-
-			//	printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
-
-			//	//for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
-			//	//{
-			//	//	auto& p = pp.h_resultPoints[i];
-
-			//	//	//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
-
-			//	//	VisualDebugging::AddSphere("Filter", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
-			//	//}
+			//	VisualDebugging::AddSphere("p", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
 			//}
 		}
+
 
 		return;
 
+		//{
+		//	auto t = Time::Now();
+		//	AOctree::Test(inputPoints);
+		//	Time::End(t, "AOCtree::Test");
+		//}
+
+		//{
+		//	auto t = Time::Now();
+		//	Algorithm::kdTree kdtree;
+		//	Algorithm::kdNode* nodes = new Algorithm::kdNode[inputPoints.size()];
+		//	for (size_t i = 0; i < inputPoints.size(); i++)
+		//	{
+		//		auto& p = inputPoints[i];
+		//		nodes[i].x[0] = p.x();
+		//		nodes[i].x[1] = p.y();
+		//		nodes[i].x[2] = p.z();
+		//	}
+		//	kdtree.buildTree(nodes, inputPoints.size(), 0, 3);
+		//	Time::End(t, "KDTree Build");
+		//}
+
+		//{
+		//	auto t = Time::Now();
+		//	Algorithm::kdiTree kdtree;
+		//	kdtree.Init(inputPoints.data(), inputPoints.size());
+		//	t = Time::End(t, "KDITree Initialize");
+		//	kdtree.buildTree(kdtree.kdRoot, inputPoints.size(), 0, 3);
+		//	t = Time::End(t, "KDITree Build");
+		//	kdtree.findKNN({ 0.0f, 0.0f, 0.0f });
+		//	t = Time::End(t, "findKNN");
+		//	printf("visited : %d\n", kdtree.visited);
+		//	for (size_t i = 0; i < kdtree.visited; i++)
+		//	{
+		//		auto node = kdtree.VisitedNodes[i];
+		//		auto& p = inputPoints[node.index];
+		//		VisualDebugging::AddSphere("Temp", p, { 1.0f, 1.0f, 1.0f }, { 0, 0, 0 }, Color4::Red);
+		//	}
+		//}
+
+//#pragma region Gaussian Blur
+//		//auto tg = Time::Now();
+//		//auto blured = GaussianBlur(inputPoints, 1.0f, 1.0f);
+//		//Time::End(tg, "GaussianBlur");
+//
+//		//vtkNew<vtkPoints> points;
+//		//for (size_t i = 0; i < blured.size(); i++)
+//		//{
+//		//	auto& p = blured[i];
+//		//	points->InsertNextPoint(p.x(), p.y(), p.z());
+//		//}
+//
+//		//vtkNew<vtkPolyData> polyData;
+//		//polyData->SetPoints(points);
+//
+//		//vtkNew<vtkVertexGlyphFilter> vertexFilter;
+//		//vertexFilter->SetInputData(polyData);
+//		//vertexFilter->Update();
+//
+//		//vtkNew<vtkPolyDataMapper> mapper;
+//		//mapper->SetInputData(vertexFilter->GetOutput());
+//
+//		//vtkNew<vtkActor> actor;
+//		//actor->SetMapper(mapper);
+//
+//		//actor->GetProperty()->SetPointSize(5.0f);
+//		//actor->GetProperty()->SetColor(1.0, 0.0, 0.0);
+//
+//		//renderer->AddActor(actor);  
+//#pragma endregion
+
+		//{
+		//	auto t = Time::Now();
+		//	AOctree::Test(inputPoints);
+		//	Time::End(t, "Test");
+		//}
+
+#pragma region Octree
+		//auto t0 = Time::Now();
+
+		//SVO::Octree* octree = new SVO::Octree;
+		//pOctree = octree;
+		//SVO::InitializeSVO(octree, inputPoints.size() * 13);
+
+		//Time::End(t0, "Initialize Octree");
+
+		//auto te = Time::Now();
+		//SVO::IntegratePointCloud(octree, inputPoints.data(), inputPoints.size(), 500.0f, 13);
+		//Time::End(te, "Integrate PointCloud Patches");
+		//
+		//printf("inputPoints.size() : %llu, octreeNodeCount : %llu\n", inputPoints.size(), octree->nodeBufferIndex);
+
+		////SVO::TraverseOctree(octree, [](const SVO::SVONode& node, int currentDepth) {
+		////	float halfSize = node.size * 0.5f;
+
+		////	stringstream ss;
+		////	ss << "WiredBox_" << currentDepth;
+		////	VisualDebugging::AddWiredBox(
+		////		ss.str(),
+		////		node.center - Eigen::Vector3f(halfSize, halfSize, halfSize),
+		////		node.center + Eigen::Vector3f(halfSize, halfSize, halfSize),
+		////		Color4::White);
+		////	});
+
+		////{
+		////	SVO::NearestNeighborResult result;
+		////	SVO::NearestNeighborDFS(octree, octree->rootIndex, { 3.0f, 3.0f, 3.0f }, result);
+		////}
+
+		////vector<SVO::Triangle> triangles;
+		////SVO::ExtractTrianglesFromOctree(octree, triangles);
+
+		////// Step 5: Output the resulting triangles
+		////for (const auto& triangle : triangles)
+		////{
+		////	std::cout << "Triangle vertices:" << std::endl;
+		////	for (const auto& vertex : triangle.vertices)
+		////	{
+		////		std::cout << "(" << vertex.x() << ", " << vertex.y() << ", " << vertex.z() << ")" << std::endl;
+		////	}
+		////	std::cout << "-------------------" << std::endl;
+		////}
+#pragma endregion
+
+#if 0
 		{
 			auto t = Time::Now();
+			kdiTree tree(inputPoints.data(), inputPoints.size());
+			t = Time::End(t, "Building KDTree");
 
-			auto op = Eigen::Vector3f(transform_0[3], transform_0[7], transform_0[11]);
+			vector<int> results;
 
-			for (size_t i = 0; i < inputPoints.size(); i++)
+#pragma region Radius Search
+			//results.clear();
+			//t = Time::Now();
+			//tree.radiusSearch({ 0.0f, 0.0f, 0.0f }, 7.0f, results);
+			//for (size_t i = 0; i < results.size(); i++)
+			//{
+			//	auto& p = inputPoints[results[i]];
+			//	VisualDebugging::AddSphere("Temp", p, { 0.1f, 0.1f, 0.1f }, { 0, 0, 0 }, Color4::Red);
+			//}
+			//t = Time::End(t, "Radius Search");
+#pragma endregion
+
+
+
+#pragma region Range Search
+			//results.clear();
+			//t = Time::Now();
+			//tree.rangeSearch({ 0.0f, 0.0f, 0.0f }, { 10.0f, 10.0f, 10.0f }, results);
+			//t = Time::End(t, "Range Search");
+
+			//for (size_t i = 0; i < results.size(); i++)
+			//{
+			//	auto& p = inputPoints[results[i]];
+			//	VisualDebugging::AddSphere("Temp", p, { 0.1f, 0.1f, 0.1f }, { 0, 0, 0 }, Color4::Red);
+			//}
+#pragma endregion
+
+			int k = 300;
+			Eigen::Vector3f target(3.0f, 3.0f, 3.0f);
+
+#pragma region Nearest Neighbor Search
+			//t = Time::Now();
+			//// 최근접 이웃 검색 테스트
+			//int nearestIndex = tree.nearestNeighbor(target);
+			//std::cout << "\nNearest Neighbor Result:" << std::endl;
+			//t = Time::End(t, "Nearest Neighbor Search");
+			//VisualDebugging::AddSphere("Temp", inputPoints[nearestIndex], { 1.0f, 1.0f, 1.0f }, { 0, 0, 0 }, Color4::Blue);
+#pragma endregion
+
+#pragma region K - Nearest Neighbor Search
+			t = Time::Now();
+			// k-최근접 이웃 검색 테스트
+			results.clear();
+			t = Time::Now();
+			tree.kNearestNeighbors(target, k, results);
+			t = Time::End(t, "K Nearest Neighbor Search");
+
+			printf("results.size() : %d\n", results.size());
+
+			for (size_t i = 0; i < results.size(); i++)
 			{
-				auto& p = inputPoints[i];
-				auto key = GetKey(p);
-				auto& voxel = voxels[key];
-
-				auto vp = GetPosition(key);
-				float tsdf = (op - vp).norm() - (op - p).norm();
-
-				if (0.0f == voxel.weight)
-				{
-					voxel.tsdf = tsdf;
-					voxel.weight = 1.0f;
-				}
-				else
-				{
-					float total_weight = voxel.weight + 1.0f;
-					voxel.tsdf = (voxel.weight * voxel.tsdf + tsdf) / total_weight;
-					voxel.weight = std::min(total_weight, voxel.weight);
-				}
-
-				{
-					auto p = inputPoints[i] + Eigen::Vector3f(0.1f, 0.0f, 0.0f);
-					auto nkey = key;
-					nkey.x += 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
-
-				{
-					auto p = inputPoints[i] - Eigen::Vector3f(0.1f, 0.0f, 0.0f);
-					auto nkey = key;
-					nkey.x -= 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
-
-				{
-					auto p = inputPoints[i] + Eigen::Vector3f(0.0f, 0.1f, 0.0f);
-					auto nkey = key;
-					nkey.y += 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
-
-				{
-					auto p = inputPoints[i] - Eigen::Vector3f(0.0f, 0.1f, 0.0f);
-					auto nkey = key;
-					nkey.y -= 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
-
-				{
-					auto p = inputPoints[i] + Eigen::Vector3f(0.0f, 0.0f, 0.1f);
-					auto nkey = key;
-					nkey.z += 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
-
-				{
-					auto p = inputPoints[i] - Eigen::Vector3f(0.0f, 0.0f, 0.1f);
-					auto nkey = key;
-					nkey.z -= 1;
-					auto& vVoxel = voxels[nkey];
-					auto vp = GetPosition(nkey);
-					float tsdf = (op - vp).norm() - (op - p).norm();
-
-					if (0.0f == vVoxel.weight)
-					{
-						vVoxel.tsdf = tsdf;
-						vVoxel.weight = 1.0f;
-					}
-					else
-					{
-						float total_weight = vVoxel.weight + 1.0f;
-						vVoxel.tsdf = (vVoxel.weight * vVoxel.tsdf + tsdf) / total_weight;
-						vVoxel.weight = std::min(total_weight, vVoxel.weight);
-					}
-				}
+				auto& p = inputPoints[results[i]];
+				VisualDebugging::AddSphere("Temp", p, { 0.1f, 0.1f, 0.1f }, { 0, 0, 0 }, Color4::Yellow);
 			}
+#pragma endregion
 
-			t = Time::End(t, "Voxel Integrate.");
+#pragma region K - Nearest Neighbor Search
+			t = Time::Now();
+			// k-최근접 이웃 검색 테스트
+			results.clear();
+			t = Time::Now();
+			tree.kNearestNeighborsWithinRadius(target, k, 2.0f, results);
+			t = Time::End(t, "K Nearest Neighbor within Radius Search");
 
-			for (auto& kvp : voxels)
+			printf("results.size() : %d\n", results.size());
+
+			for (size_t i = 0; i < results.size(); i++)
 			{
-				if (kvp.second.weight > 0.0f)
-				{
-					if ((-0.5f <= kvp.second.tsdf) && (0.5f >= kvp.second.tsdf))
-					{
-						auto p = GetPosition(kvp.first);
-
-						VisualDebugging::AddCube("Voxel", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
-					}
-				}
+				auto& p = inputPoints[results[i]];
+				VisualDebugging::AddSphere("Temp", p, { 0.1f, 0.1f, 0.1f }, { 0, 0, 0 }, Color4::Blue);
 			}
+#pragma endregion
+
+#pragma region K - Nearest Neighbor Search
+			t = Time::Now();
+			// k-최근접 이웃 검색 테스트
+			results.clear();
+			t = Time::Now();
+			tree.kNearestNeighborsWithinRange(target, k, { 2.0, 2.0, 2.0f }, { 5.0, 5.0f, 5.0f }, results);
+			t = Time::End(t, "K Nearest Neighbor within Range Search");
+
+			printf("results.size() : %d\n", results.size());
+
+			for (size_t i = 0; i < results.size(); i++)
+			{
+				auto& p = inputPoints[results[i]];
+				VisualDebugging::AddSphere("Temp", p, { 0.1f, 0.1f, 0.1f }, { 0, 0, 0 }, Color4::Cyan);
+			}
+#pragma endregion
 		}
+#endif
 
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);

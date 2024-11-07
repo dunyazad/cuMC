@@ -67,3 +67,12 @@ inline void __printLastCudaError(const char* errorMessage, const char* file,
             cudaGetErrorString(err));
     }
 }
+
+// CUDA error check macro
+#define cudaCheckError() { \
+    cudaError_t e = cudaGetLastError(); \
+    if (e != cudaSuccess) { \
+        std::cerr << "CUDA Error: " << cudaGetErrorString(e) << "\n"; \
+        exit(1); \
+    } \
+}

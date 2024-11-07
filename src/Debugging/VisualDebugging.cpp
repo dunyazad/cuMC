@@ -1,4 +1,5 @@
 #include <Debugging/VisualDebugging.h>
+#include <Debugging/VisualDebuggingLayer.h>
 
 bool VisualDebugging::s_needToRender = false;
 VisualDebugging* VisualDebugging::s_instance = nullptr;
@@ -157,7 +158,7 @@ void VisualDebugging::SetRepresentationAll(Representation representation)
 {
 	for (auto layer : s_layers)
 	{
-		layer->SetRepresentationAll(representation);
+		layer->SetRepresentationAll((VisualDebuggingLayer::Representation)representation);
 	}
 
 	s_needToRender = true;
@@ -168,7 +169,7 @@ void VisualDebugging::SetRepresentation(const string& layerName, Representation 
 	auto layer = GetLayer(layerName);
 	if (nullptr != layer)
 	{
-		layer->SetRepresentationAll(representation);
+		layer->SetRepresentationAll((VisualDebuggingLayer::Representation)representation);
 	}
 
 	s_needToRender = true;
@@ -178,7 +179,7 @@ void VisualDebugging::SetRepresentationByIndex(int index, Representation represe
 {
 	if (index < s_layers.size())
 	{
-		s_layers[index]->SetRepresentationAll(representation);
+		s_layers[index]->SetRepresentationAll((VisualDebuggingLayer::Representation)representation);
 	}
 
 	s_needToRender = true;

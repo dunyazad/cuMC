@@ -1,8 +1,8 @@
 #pragma once
 
-#include <Debugging/VisualDebuggingLayer.h>
-
 #include <Color.h>
+
+class VisualDebuggingLayer;
 
 namespace Eigen
 {
@@ -13,6 +13,8 @@ namespace Eigen
 
 class VisualDebugging {
 public:
+	enum Representation { HPoints, HWireFrame, HSurface };
+
 	static void Initialize(vtkSmartPointer<vtkRenderer> renderer);
 	static void Terminate();
 

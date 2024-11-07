@@ -14,7 +14,7 @@ int vtkMedianFilter::RequestData(vtkInformation* request,
     kdTree->BuildLocator();
 
     auto points = input->GetPoints();
-    auto nop = input->GetNumberOfPoints();
+    auto nop = (size_t)input->GetNumberOfPoints();
     for (size_t i = 0; i < nop; i++)
     {
         auto point = points->GetPoint(i);

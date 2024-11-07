@@ -1,7 +1,5 @@
 #include <Common.h>
 
-_MAX Max;
-
 namespace Time
 {
 	chrono::steady_clock::time_point Now()

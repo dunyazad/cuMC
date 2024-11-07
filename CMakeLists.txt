@@ -41,6 +41,8 @@ set(source_list
     src/main.cpp
     src/Common.h
     src/Common.cpp
+    src/Max.h
+    src/Max.cpp
     src/stdHeaderFiles.h
     src/vtkHeaderFiles.h
     src/Color.h
@@ -51,6 +53,7 @@ set(source_list
     src/App/CustomTrackballStyle.cpp
     src/App/Utility.h
     src/App/Utility.cpp
+    src/Algorithm/Octree.hpp
     src/Algorithm/CustomPolyDataFilter.h
     src/Algorithm/CustomPolyDataFilter.cpp
     src/Algorithm/vtkMedianFilter.h
@@ -90,6 +93,15 @@ target_include_directories(cuMC PRIVATE
     "External/eigen"
     "External/openvdb/nanovdb"
     ${OPENVDB_INCLUDE_DIRS}
+    ${VTK_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
+)
+
+target_include_directories(cuda_objects PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    "External"
+    "External/eigen"
     ${VTK_INCLUDE_DIRS}
     ${CUDAToolkit_INCLUDE_DIRS}
 )

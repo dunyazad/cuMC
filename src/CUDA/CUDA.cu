@@ -1,67 +1,134 @@
 #include "CUDA.cuh"
 
-struct VolumInfo
+namespace CUDA
 {
-	float voxelSize = 0.1f;
-	float minX = -25.0f;
-	float minY = -25.0f;
-	float minZ = -25.0f;
-	size_t volumeSizeX = 500;
-	size_t volumeSizeY = 500;
-	size_t volumeSizeZ = 500;
-	size_t numberOfVoxels = 500 * 500 * 500;
-};
-
-__global__ void TestFill(VolumInfo info, Voxel* voxels, float cx, float cy, float cz, float radius)
-{
-	size_t threadid = blockIdx.x * blockDim.x + threadIdx.x;
-	if (threadid > info.numberOfVoxels - 1) return;
-
-	auto indexZ = threadid / (info.volumeSizeX * info.volumeSizeY);
-	auto indexY = (threadid % (info.volumeSizeX * info.volumeSizeY)) / info.volumeSizeX;
-	auto indexX = (threadid % (info.volumeSizeX * info.volumeSizeY)) % info.volumeSizeX;
-
-	auto x = info.minX + (float)indexX * info.voxelSize;
-	auto y = info.minY + (float)indexY * info.voxelSize;
-	auto z = info.minZ + (float)indexZ * info.voxelSize;
-
-	auto dx = x - cx;
-	auto dy = y - cy;
-	auto dz = z - cz;
-
-	voxels[threadid].x = x;
-	voxels[threadid].y = y;
-	voxels[threadid].z = z;
-	voxels[threadid].value = sqrtf(dx * dx + dy * dy + dz * dz);
-
-	//printf("voxel : %f, %f, %f, %f\n", voxels[threadid].x, voxels[threadid].y, voxels[threadid].z, voxels[threadid].value);
-}
-
-Voxel* CUDATest()
-{
-	VolumInfo info
+	__global__ void Kernel_InitializeCache(Voxel* cache, int3 cacheSize)
 	{
-		0.1f,
-		-25.0f, -25.0f, -25.0f,
-		500, 500, 500,
-		500 * 500 * 500
-	};
+		int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
+		int yIndex = blockIdx.y * blockDim.y + threadIdx.y;
+		int zIndex = blockIdx.z * blockDim.z + threadIdx.z;
 
-	Voxel* grid = nullptr;
-	cudaMallocManaged(&grid, sizeof(Voxel) * info.volumeSizeX * info.volumeSizeY * info.volumeSizeZ);
+		int index = zIndex * cacheSize.z * cacheSize.y + yIndex * cacheSize.x + xIndex;
+		if (index > cacheSize.x * cacheSize.y * cacheSize.z - 1) return;
 
-	nvtxRangePushA("TestFill");
+		cache[index].tsdfValue = FLT_MAX;
+		cache[index].weight = 0.0f;
+		cache[index].normal = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+		cache[index].color = Eigen::Vector3f(1.0f, 1.0f, 1.0f);
+	}
 
-	int minGridSize;
-	int threadBlockSize;
-	cudaOccupancyMaxPotentialBlockSize(&minGridSize, &threadBlockSize, TestFill, 0, 0);
-	int gridSize = (info.numberOfVoxels + threadBlockSize - 1) / threadBlockSize;
+	__device__ void UpdateVoxel(
+		int3 index,
+		Voxel* cache,
+		int3 cacheSize,
+		float voxelSize,
+		Eigen::Vector3f cacheMin,
+		Eigen::Matrix4f transform,
+		uint32_t numberOfPoints,
+		Eigen::Vector3f* points,
+		Eigen::Vector3f* normals,
+		Eigen::Vector3f* colors)
+	{
 
-	TestFill << <gridSize, threadBlockSize, 0, 0>>> (info, grid, 0.0f, 0.0f, 0.0f, 10.0f);
+	}
 
-	cudaDeviceSynchronize();
+	__global__ void Kernel_Integrate(
+		Voxel* cache,
+		int3 cacheSize,
+		float voxelSize,
+		Eigen::Vector3f cacheMin,
+		Eigen::Matrix4f transform,
+		uint32_t numberOfPoints,
+		Eigen::Vector3f* points,
+		Eigen::Vector3f* normals,
+		Eigen::Vector3f* colors)
+	{
+		uint32_t threadid = blockIdx.x * blockDim.x + threadIdx.x;
+		if (threadid > numberOfPoints - 1) return;
 
-	nvtxRangePop();
+		if (nullptr == cache) return;
+		if (nullptr == points) return;
 
-	return grid;
+		auto& p = points[threadid];
+
+		float offsetX = p.x() - cacheMin.x();
+		float offsetY = p.y() - cacheMin.y();
+		float offsetZ = p.z() - cacheMin.z();
+
+		if (0 > offsetX || 0 > offsetY || 0 > offsetZ) return;
+
+		int xIndex = (int)floorf(offsetX / voxelSize);
+		int yIndex = (int)floorf(offsetY / voxelSize);
+		int zIndex = (int)floorf(offsetZ / voxelSize);
+
+		if (xIndex < 0 || xIndex >= cacheSize.x || yIndex < 0 || yIndex >= cacheSize.y || zIndex < 0 || zIndex >= cacheSize.z) return;
+
+		auto vp = Eigen::Vector3f(
+			cacheMin.x() + xIndex * cacheSize.x,
+			cacheMin.y() + yIndex * cacheSize.y,
+			cacheMin.z() + zIndex * cacheSize.z);
+
+		for (size_t i = 0; i < 10 * 10 * 10; i++)
+		{
+			int index = zIndex * cacheSize.z * cacheSize.y + yIndex * cacheSize.x + xIndex;
+			if (0.0f == cache[index].weight)
+			{
+				cache[index].tsdfValue = 0.0f;
+				cache[index].weight = 1.0f;
+			}
+			else
+			{
+				float newTsdfValue = 0.0f; // Calculate based on points and cache[index].tsdfValue
+				cache[index].tsdfValue = (cache[index].tsdfValue * cache[index].weight + newTsdfValue) / (cache[index].weight + 1);
+				cache[index].weight += 1.0f;
+			}
+		}
+	}
+
+	cuCache::cuCache(int xLength, int yLength, int zLength, float voxelSize)
+		: voxelSize(voxelSize)
+	{
+		cacheSize = make_int3(xLength, yLength, zLength);
+		cudaMallocManaged(&cache, sizeof(Voxel) * xLength * yLength * zLength);
+
+		ClearCache();
+	}
+
+	cuCache::~cuCache()
+	{
+		cudaFree(cache);
+	}
+
+	void cuCache::ClearCache()
+	{
+		dim3 blockDim(8, 8, 8);
+		dim3 gridDim(
+			(cacheSize.x + blockDim.x - 1) / blockDim.x,
+			(cacheSize.y + blockDim.y - 1) / blockDim.y,
+			(cacheSize.z + blockDim.z - 1) / blockDim.z);
+
+		Kernel_InitializeCache << < gridDim, blockDim >> > (cache, cacheSize);
+	}
+
+	void cuCache::Integrate(
+		const Eigen::Vector3f& cacheMin,
+		const Eigen::Matrix4f& transform,
+		uint32_t numberOfPoints,
+		Eigen::Vector3f* points,
+		Eigen::Vector3f* normals,
+		Eigen::Vector3f* colors)
+	{
+		nvtxRangePushA("Integrate");
+
+		this->cacheMin = cacheMin;
+
+		int threadblocksize = 512;
+		uint32_t gridsize = (numberOfPoints - 1) / threadblocksize;
+		Kernel_Integrate << < gridsize, threadblocksize >> > (
+			cache, cacheSize, voxelSize, cacheMin, transform, numberOfPoints, points, normals, colors);
+
+		cudaDeviceSynchronize();
+
+		nvtxRangePop();
+	}
 }

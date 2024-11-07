@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include <chrono>
-#include <cstddef> // For std::byte
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <map>

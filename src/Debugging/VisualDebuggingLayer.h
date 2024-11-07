@@ -6,53 +6,11 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-enum Representation { HPoints, HWireFrame, HSurface };
-
-inline void ShowActor(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor, bool show)
-{
-	if (nullptr != actor)
-	{
-		actor->SetVisibility(show);
-		//renderer->GetRenderWindow()->Render();
-	}
-}
-
-inline void ToggleActorVisibility(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor)
-{
-	if (nullptr != actor)
-	{
-		actor->SetVisibility(!actor->GetVisibility());
-		//renderer->GetRenderWindow()->Render();
-	}
-}
-
-inline void SetActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor, Representation representation)
-{
-	if (nullptr != actor)
-	{
-		actor->GetProperty()->SetRepresentation(representation);
-		//renderer->GetRenderWindow()->Render();
-	}
-}
-
-inline void ToggleActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor)
-{
-	if (nullptr != actor)
-	{
-		auto mode = actor->GetProperty()->GetRepresentation();
-		mode += 1;
-		if (mode > VTK_SURFACE)
-		{
-			mode = VTK_POINTS;
-		}
-		actor->GetProperty()->SetRepresentation(mode);
-		//renderer->GetRenderWindow()->Render();
-	}
-}
-
 class VisualDebuggingLayer
 {
 public:
+	enum Representation { HPoints, HWireFrame, HSurface };
+
 	VisualDebuggingLayer(const string& layerName);
 	~VisualDebuggingLayer();
 
@@ -131,6 +89,49 @@ public:
 	inline vtkSmartPointer<vtkActor> GetGlyphActor() { return glyphActor; }
 	inline vtkSmartPointer<vtkActor> GetArrowActor() { return arrowActor; }
 	inline vtkSmartPointer<vtkActor> GetWiredBoxActor() { return wiredBoxActor; }
+
+protected:
+	inline void ShowActor(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor, bool show)
+	{
+		if (nullptr != actor)
+		{
+			actor->SetVisibility(show);
+			//renderer->GetRenderWindow()->Render();
+		}
+	}
+
+	inline void ToggleActorVisibility(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor)
+	{
+		if (nullptr != actor)
+		{
+			actor->SetVisibility(!actor->GetVisibility());
+			//renderer->GetRenderWindow()->Render();
+		}
+	}
+
+	inline void SetActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor, Representation representation)
+	{
+		if (nullptr != actor)
+		{
+			actor->GetProperty()->SetRepresentation(representation);
+			//renderer->GetRenderWindow()->Render();
+		}
+	}
+
+	inline void ToggleActorRepresentation(vtkSmartPointer<vtkRenderer> renderer, vtkSmartPointer<vtkActor> actor)
+	{
+		if (nullptr != actor)
+		{
+			auto mode = actor->GetProperty()->GetRepresentation();
+			mode += 1;
+			if (mode > VTK_SURFACE)
+			{
+				mode = VTK_POINTS;
+			}
+			actor->GetProperty()->SetRepresentation(mode);
+			//renderer->GetRenderWindow()->Render();
+		}
+	}
 
 private:
 	string layerName = "";
