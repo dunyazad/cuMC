@@ -904,45 +904,90 @@ int main()
 		auto t = Time::Now();
 
 		CUDA::cuCache cache;
-
 		t = Time::End(t, "Cache Initialize");
+		
+		vector<CUDA::Voxel> h_cache(cache.cacheSize.x * cache.cacheSize.y * cache.cacheSize.z);
 
 		{
+			Eigen::Vector3f* points;
+			cudaMalloc(&points, sizeof(Eigen::Vector3f) * 256 * 480);
+
 			//Processing::PatchProcessor pp;
 			//pp.Initialize(2000, 2000, 256 * 480);
 
-			//for (int i = 3; i < 244; i++)
 			int i = 3;
-			//for (int i = 14; i < 15; i++)
+			//for (int i = 3; i < 244; i++)
+			//for (int i = 3; i < 7; i++)
+			//for (int cnt = 0; cnt < 4; cnt++)
 			{
+				cache.ClearCache();
+	
+				auto t = Time::Now();
+				for (int z = 0; z < cache.cacheSize.z; z++)
+				{
+					for (int y = 0; y < cache.cacheSize.y; y++)
+					{
+						for (int x = 0; x < cache.cacheSize.x; x++)
+						{
+							VoxelKey key{ x, y, z };
+							if (0 != voxels.count(key))
+							{
+								auto& voxel = voxels[key];
+								
+								int index = z * cache.cacheSize.z * cache.cacheSize.y + y * cache.cacheSize.x + x;
+								cache.cache[index].tsdfValue = voxel.tsdf;
+								cache.cache[index].weight = voxel.weight;
+							}
+						}
+					}
+				}
+				t = Time::End(t, "Fetching");
+
 				auto te = Time::Now();
 				LoadPatch(i, renderer);
 				Time::End(te, "Loading PointCloud Patch");
 
-				//for (size_t i = 0; i < patchPoints.size(); i++)
-				//{
-				//	auto& p = patchPoints[i];
-				//	VisualDebugging::AddSphere("Original", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
-				//}
+				for (size_t i = 0; i < patchPoints_0.size(); i++)
+				{
+					auto& p = patchPoints_0[i];
+					VisualDebugging::AddSphere("Original_0", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
+				}
+				for (size_t i = 0; i < patchPoints_45.size(); i++)
+				{
+					auto& p = patchPoints_45[i];
+					VisualDebugging::AddSphere("Original_45", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
+				}
 
 				{
-					Eigen::Vector3f* points;
-					cudaMalloc(&points, sizeof(Eigen::Vector3f) * patchPoints_0.size());
 					cudaMemcpy(points, patchPoints_0.data(), sizeof(Eigen::Vector3f) * patchPoints_0.size(), cudaMemcpyHostToDevice);
+					cudaDeviceSynchronize();
+
+					auto cp = Eigen::Vector3f(transform_0[12], transform_0[13], transform_0[14] + 20.0f);
+
+					float minx = floorf(aabb.min().x() / cache.voxelSize) * cache.voxelSize;
+					float miny = floorf(aabb.min().y() / cache.voxelSize) * cache.voxelSize;
+					float minz = floorf(aabb.min().z() / cache.voxelSize) * cache.voxelSize;
 
 					t = Time::Now();
-					cache.Integrate(taabb.min() - Eigen::Vector3f::Ones(), Eigen::Matrix4f(transform_0), inputPoints.size(), points, nullptr, nullptr);
+					cache.Integrate({minx, miny, minz}, cp, Eigen::Matrix4f(transform_0), inputPoints.size(), points, nullptr, nullptr);
 					Time::End(te, "Cache Integrate 0");
 				}
 				{
-					Eigen::Vector3f* points;
-					cudaMalloc(&points, sizeof(Eigen::Vector3f) * patchPoints_45.size());
 					cudaMemcpy(points, patchPoints_45.data(), sizeof(Eigen::Vector3f) * patchPoints_45.size(), cudaMemcpyHostToDevice);
+					cudaDeviceSynchronize();
+
+					auto cp = Eigen::Vector3f(transform_45[12], transform_0[13], transform_0[14] + 20.0f);
+
+					float minx = floorf(aabb.min().x() / cache.voxelSize) * cache.voxelSize;
+					float miny = floorf(aabb.min().y() / cache.voxelSize) * cache.voxelSize;
+					float minz = floorf(aabb.min().z() / cache.voxelSize) * cache.voxelSize;
 
 					t = Time::Now();
-					cache.Integrate(taabb.min() - Eigen::Vector3f::Ones(), Eigen::Matrix4f(transform_45), inputPoints.size(), points, nullptr, nullptr);
+					cache.Integrate({ minx, miny, minz }, cp, Eigen::Matrix4f(transform_45), inputPoints.size(), points, nullptr, nullptr);
 					Time::End(te, "Cache Integrate 45");
 				}
+
+				//cache.Serialize(h_cache.data());
 
 				for (int z = 0; z < cache.cacheSize.z; z++)
 				{
@@ -950,21 +995,69 @@ int main()
 					{
 						for (int x = 0; x < cache.cacheSize.x; x++)
 						{
-							int index = z * cache.cacheSize.z * cache.cacheSize.y + y* cache.cacheSize.x + x;
-							auto& voxel = cache.cache[index];
+							int index = z * cache.cacheSize.z * cache.cacheSize.y + y * cache.cacheSize.x + x;
+							auto voxel = cache.cache[index];
+							//auto voxel = h_cache[index];
 
-							if (voxel.weight != 0.0f)
+							if (voxel.weight > 0.0f)
+							//if (-0.05f < voxel.tsdfValue && voxel.tsdfValue < 0.05f)
 							{
-								float px = cache.cacheMin.x() + x * cache.voxelSize;
-								float py = cache.cacheMin.y() + y * cache.voxelSize;
-								float pz = cache.cacheMin.z() + z * cache.voxelSize;
+								Eigen::Vector3f position = Eigen::Vector3f(
+									x * cache.voxelSize + cache.cacheMin.x(),
+									y * cache.voxelSize + cache.cacheMin.y(),
+									z * cache.voxelSize + cache.cacheMin.z());
 
-								VisualDebugging::AddCube("Voxel", {px, py, pz}, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
+								auto key = GetKey(position);
+								voxels[key].tsdf = voxel.tsdfValue;
+								voxels[key].weight = voxel.weight;
 							}
 						}
 					}
 				}
 			}
+
+			cudaFree(points);
+			cudaDeviceSynchronize();
+
+			for (auto& kvp : voxels)
+			{
+				auto position = GetPosition(kvp.first);
+				if (-0.05f < kvp.second.tsdf && kvp.second.tsdf < 0.05f)
+				{
+					VisualDebugging::AddCube("Voxel", position, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
+				}
+			}
+
+
+			//for (int z = 0; z < cache.cacheSize.z; z++)
+			//{
+			//	for (int y = 0; y < cache.cacheSize.y; y++)
+			//	{
+			//		for (int x = 0; x < cache.cacheSize.x; x++)
+			//		{
+			//			int index = z * cache.cacheSize.z * cache.cacheSize.y + y * cache.cacheSize.x + x;
+			//			//auto voxel = cache.cache[index];
+			//			auto voxel = h_cache[index];
+
+			//			//if (voxel.weight != 0.0f)
+			//			if (-0.05f < voxel.tsdfValue && voxel.tsdfValue < 0.05f)
+			//			{
+			//				float px = cache.cacheMin.x() + x * cache.voxelSize;
+			//				float py = cache.cacheMin.y() + y * cache.voxelSize;
+			//				float pz = cache.cacheMin.z() + z * cache.voxelSize;
+
+			//				VisualDebugging::AddCube("Voxel", { px, py, pz }, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
+			//			}
+			//		}
+			//	}
+			//}
+
+
+
+
+
+
+
 
 			//{
 			//	float sampleSize = 0.1f;
