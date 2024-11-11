@@ -8,6 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <queue>
 #include <random>
 #include <set>
 #include <sstream>
