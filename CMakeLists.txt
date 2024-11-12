@@ -49,6 +49,8 @@ set(source_list
     src/Color.cpp
     src/App/App.h
     src/App/App.cpp
+    src/App/AppEventHandlers.h
+    src/App/AppEventHandlers.cpp
     src/App/CustomTrackballStyle.h
     src/App/CustomTrackballStyle.cpp
     src/App/Utility.h
