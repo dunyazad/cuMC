@@ -55,6 +55,8 @@ set(source_list
     src/App/CustomTrackballStyle.cpp
     src/App/Utility.h
     src/App/Utility.cpp
+    src/Algorithm/SVO.h
+    src/Algorithm/SVO.cpp
     src/Algorithm/Octree.hpp
     src/Algorithm/CustomPolyDataFilter.h
     src/Algorithm/CustomPolyDataFilter.cpp
