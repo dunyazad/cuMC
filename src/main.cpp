@@ -315,6 +315,10 @@ int main()
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
 		});
 
+	app.AddAppUpdateCallback([&](App* pApp) {
+		//cout << "App Update" << endl;
+		});
+
 	app.AddKeyPressCallback(OnKeyPress);
 	app.Run();
 
