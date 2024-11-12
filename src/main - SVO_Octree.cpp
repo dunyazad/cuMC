@@ -1310,6 +1310,8 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 			ss << "Cubes_" << depthIndex;
 			VisualDebugging::SetVisibility(ss.str(), true);
 		}
+
+		printf("Depth : %d\n", depthIndex);
 	}
 	else if (key == "Right")
 	{
@@ -1327,6 +1329,8 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 			ss << "Cubes_" << depthIndex;
 			VisualDebugging::SetVisibility(ss.str(), true);
 		}
+
+		printf("Depth : %d\n", depthIndex);
 	}
 	else if (key == "space")
 	{

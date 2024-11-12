@@ -1107,6 +1107,15 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	renderer->AddActor(actor);
 }
 
+std::string getCurrentTimeAsString() {
+	auto t = std::time(nullptr);
+	auto tm = *std::localtime(&t);
+
+	std::ostringstream oss;
+	oss << std::put_time(&tm, "%Y%m%d_%H%M%S"); // Format: YYYYMMDD_HHMMSS
+	return oss.str();
+}
+
 void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData) {
 	vtkRenderWindowInteractor* interactor = static_cast<vtkRenderWindowInteractor*>(caller);
 	vtkRenderWindow* renderWindow = interactor->GetRenderWindow();
@@ -1132,6 +1141,24 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 		interactor->Render();
 	}
 	else if (key == "c")
+	{
+		// Generate a filename using the current time
+		std::string filename = "C:\\Resources\\2D\\Captured\\screenshot_" + getCurrentTimeAsString() + ".png";
+
+		// Capture the frame
+		vtkNew<vtkWindowToImageFilter> windowToImageFilter;
+		windowToImageFilter->SetInput(renderWindow);
+		windowToImageFilter->Update();
+
+		// Write the captured frame to a PNG file with the timestamped filename
+		vtkNew<vtkPNGWriter> pngWriter;
+		pngWriter->SetFileName(filename.c_str());
+		pngWriter->SetInputConnection(windowToImageFilter->GetOutputPort());
+		pngWriter->Write();
+
+		std::cout << "Screenshot saved as screenshot.png" << std::endl;
+	}
+	else if (key == "p")
 	{
 		vtkRenderer* renderer = static_cast<vtkRenderer*>(clientData);
 
@@ -1334,6 +1361,7 @@ void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, 
 	}
 	else if (key == "space")
 	{
+		VisualDebugging::ToggleVisibility("axes");
 	}
 }
 
@@ -1351,8 +1379,8 @@ int main()
 			float sampleSize = 0.1f;
 			pp.Initialize(2000, 2000, 256 * 480);
 
-			//int i = 3;
-			for (int i = 3; i < 244; i++)
+			int i = 3;
+			//for (int i = 3; i < 244; i++)
 				//for (int i = 3; i < 57; i++)
 				//for (int cnt = 0; cnt < 4; cnt++)
 			{
@@ -1381,15 +1409,20 @@ int main()
 				//SVO::IntegratePointCloudWithNeighborUpdate(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 13, 1.0f);
 				//SVO::IntegratePointCloudWithNeighborUpdate(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 13, 1.0f);
 
+				/*
 				pp.DownSample(patchPoints_0.data(), patchPoints_0.size(), sampleSize, aabb_0.min(), aabb_0.max());
 				pp.MedianFilter(pp.h_resultPoints, pp.h_numberOfResultPoints, sampleSize, aabb_0.min(), aabb_0.max());
 
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 12, 1.0f);
+				SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 13, 1.0f);
 
 				pp.DownSample(patchPoints_45.data(), patchPoints_45.size(), sampleSize, aabb_45.min(), aabb_45.max());
 				pp.MedianFilter(pp.h_resultPoints, pp.h_numberOfResultPoints, sampleSize, aabb_45.min(), aabb_45.max());
 
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 12, 1.0f);
+				SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 13, 1.0f);
+				*/
+
+				SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 13, 1.0f);
+				SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 13, 1.0f);
 			}
 
 			//{

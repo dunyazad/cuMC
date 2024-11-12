@@ -55,7 +55,7 @@ namespace CUDA
 		cache[currentIndex].weight = 1.0f;
 		cache[currentIndex].tsdfValue = 0.0f;
 
-		//return;
+		return;
 
 		//if (xIndex < 0 || xIndex >= cacheSize.x || yIndex < 0 || yIndex >= cacheSize.y || zIndex < 0 || zIndex >= cacheSize.z)	return;
 

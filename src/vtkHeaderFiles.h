@@ -74,6 +74,7 @@
 #include <vtkInformationVector.h>
 
 #include <vtkKdTree.h>
+#include <vtkOctreePointLocator.h>
 
 #include <vtkDelaunay3D.h>
 #include <vtkPolyDataConnectivityFilter.h>
@@ -89,6 +90,7 @@
 #include <vtkSignedDistance.h>
 #include <vtkMarchingCubes.h>
 #include <vtkDecimatePro.h>
+#include <vtkWindowToImageFilter.h>
 
 #include <vtkExtractCells.h>
 
