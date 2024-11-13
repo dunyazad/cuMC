@@ -17,7 +17,7 @@ namespace Algorithm
 #define KNN 		4
 #define MAX_DIM 	3
 #define expWeight 	false
-#define NODE_NUM    300
+#define NODE_NUM    30000000
 #define dgw 		1
 #define EPSILLON  	1e-4
 

@@ -28,7 +28,7 @@ public:
 	App();
 	~App();
 
-	void Run();
+	void Run(int windowWidth = 1920, int windowHeight = 1080, bool maximizeRenderWindow = true, bool maximizeConsoleWindow = true);
 
     void AddAppStartCallback(function<void(App*)> f);
     void AddAppStartCallback(const string& name, function<void(App*)> f);
@@ -40,14 +40,16 @@ public:
     void RemoveAppUpdateCallback();
     void RemoveAppUpdateCallback(const string& name);
 
-    void AddKeyPressCallback(function<void(vtkObject*, long unsigned int, void*, void*)> f);
-    void AddKeyPressCallback(const string& name, function<void(vtkObject*, long unsigned int, void*, void*)> f);
+    void AddKeyPressCallback(function<void(App*)> f);
+    void AddKeyPressCallback(const string& name, function<void(App*)> f);
     void RemoveKeyPressCallback();
     void RemoveKeyPressCallback(const string& name);
 
     void OnUpdate();
 
-    static void OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData);
+    void CaptureColorAndDepth(const string& saveDirectory);
+
+    static void OnKeyPress();
 
     inline vtkSmartPointer<vtkRenderer> GetRenderer() const { return renderer; }
     inline vtkSmartPointer<vtkRenderWindow> GetRenderWindow() const { return renderWindow; }
@@ -67,5 +69,5 @@ private:
     map<string, function<void(App*)>> appStartCallbacks;
     map<string, function<void(App*)>> appUpdateCallbacks;
     //vtkObject* caller, long unsigned int eventId, void* clientData, void* callData
-    map<string, function<void(vtkObject*, long unsigned int, void*, void*)>> keyPressCallbacks;
+    map<string, function<void(App*)>> keyPressCallbacks;
 };

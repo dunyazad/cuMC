@@ -5,6 +5,7 @@
 #include <vtkFloatArray.h>
 #include <vtkDoubleArray.h>
 #include <vtkUnsignedCharArray.h>
+#include <vtkUnsignedIntArray.h>
 #include <vtkTransform.h>
 
 #include <vtkCommand.h>
@@ -28,10 +29,12 @@
 #include <vtkPointData.h>
 #include <vtkLine.h>
 #include <vtkTriangle.h>
+#include <vtkPlane.h>
 #include <vtkQuad.h>
 #include <vtkCellData.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPolyData.h>
+#include <vtkPolygon.h>
 #include <vtkAppendPolyData.h>
 
 #include <vtkCylinderSource.h>
@@ -40,6 +43,7 @@
 #include <vtkCubeSource.h>
 #include <vtkArrowSource.h>
 #include <vtkFrustumSource.h>
+#include <vtkPlaneSource.h>
 #include <vtkVectorText.h>
 
 #include <vtkPolyDataMapper.h>
@@ -91,6 +95,7 @@
 #include <vtkMarchingCubes.h>
 #include <vtkDecimatePro.h>
 #include <vtkWindowToImageFilter.h>
+#include <vtkImageShiftScale.h>
 
 #include <vtkExtractCells.h>
 

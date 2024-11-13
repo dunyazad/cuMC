@@ -2,10 +2,6 @@
 #include <App/App.h>
 #include <App/AppEventHandlers.h>
 
-#include <Eigen/Dense>
-#include <Eigen/Sparse>
-#include <Eigen/IterativeLinearSolvers>
-
 #include <Algorithm/SVO.h>
 #include <Algorithm/Octree.hpp>
 
@@ -24,6 +20,7 @@
 #include <CUDA/Processing.cuh>
 
 #include <CUDA/CUDA.cuh>
+#include <CUDA/IndexedTriangleSet.cuh>
 
 int pid = 0;
 size_t size_0 = 0;
@@ -182,145 +179,108 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	renderer->AddActor(actor);
 }
 
+void LoadModel(vtkRenderer* renderer, const string& filename)
+{
+	vtkNew<vtkPLYReader> reader;
+	reader->SetFileName(filename.c_str());
+	reader->Update();
+
+	vtkPolyData* polyData = reader->GetOutput();
+	
+	vtkNew<vtkPolyDataMapper> mapper;
+	mapper->SetInputData(polyData);
+
+	vtkNew<vtkActor> actor;
+	actor->SetMapper(mapper);
+
+	renderer->AddActor(actor);
+
+	vtkPoints* points = polyData->GetPoints();
+	vtkFloatArray* floatArray = vtkArrayDownCast<vtkFloatArray>(points->GetData());
+	float* pointData = static_cast<float*>(floatArray->GetPointer(0));
+	size_t numPoints = points->GetNumberOfPoints();
+
+	vtkCellArray* cells = polyData->GetPolys();
+	vtkIdType npts;
+	const vtkIdType* pts;
+
+	std::vector<uint32_t> triangleIndices;
+
+	cells->InitTraversal();
+	while (cells->GetNextCell(npts, pts))
+	{
+		if (npts == 3)
+		{
+			for (vtkIdType i = 0; i < 3; ++i)
+			{
+				triangleIndices.push_back(static_cast<uint32_t>(pts[i]));
+			}
+		}
+	}
+
+	CUDA::Mesh mesh = CUDA::AllocateMesh(pointData, numPoints, triangleIndices.data(), triangleIndices.size() / 3);
+	CUDA::DeallocMesh(&mesh);
+
+	vector<Algorithm::kdNode> kdNodes(numPoints);
+	for (size_t i = 0; i < numPoints; i++)
+	{
+		kdNodes[i].id = i;
+		kdNodes[i].x[0] = pointData[i * 3 + 0];
+		kdNodes[i].x[1] = pointData[i * 3 + 1];
+		kdNodes[i].x[2] = pointData[i * 3 + 2];
+	}
+	Algorithm::kdTree tree;
+	tree.init(numPoints); // Allocates memory and prepares the tree
+
+	auto t = Time::Now();
+	// Build the KD-tree
+	tree.kdRoot = tree.buildTree(kdNodes.data(), numPoints, 0, 3);
+	t = Time::End(t, "KDTree Build");
+}
+
 int main()
 {
+	vtkActor* planeActor = nullptr;
+
 	App app;
 	app.AddAppStartCallback([&](App* pApp) {
 		auto renderer = pApp->GetRenderer();
 
-		SVO::Octree octree;
-		SVO::InitializeSVO(&octree, 3000000);
-
-		{
-			Processing::PatchProcessor pp;
-			float sampleSize = 0.1f;
-			pp.Initialize(2000, 2000, 256 * 480);
-
-			int i = 3;
-			//for (int i = 3; i < 244; i++)
-				//for (int i = 3; i < 57; i++)
-				//for (int cnt = 0; cnt < 4; cnt++)
-			{
-				printf("======= [%4d] =======\n", i);
-
-				auto te = Time::Now();
-				LoadPatch(i, renderer);
-				Time::End(te, "Loading PointCloud Patch");
-
-				//for (size_t i = 0; i < patchPoints_0.size(); i++)
-				//{
-				//	auto& p = patchPoints_0[i];
-				//	VisualDebugging::AddSphere("Original_0", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
-				//}
-				//for (size_t i = 0; i < patchPoints_45.size(); i++)
-				//{
-				//	auto& p = patchPoints_45[i];
-				//	VisualDebugging::AddSphere("Original_45", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
-
-				//SVO::IntegratePointCloud(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 14);
-				//SVO::IntegratePointCloud(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 14);
-
-				//SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 14, 1.0f);
-				//SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 14, 1.0f);
-
-				//SVO::IntegratePointCloudWithNeighborUpdate(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 13, 1.0f);
-				//SVO::IntegratePointCloudWithNeighborUpdate(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 13, 1.0f);
-
-				/*
-				pp.DownSample(patchPoints_0.data(), patchPoints_0.size(), sampleSize, aabb_0.min(), aabb_0.max());
-				pp.MedianFilter(pp.h_resultPoints, pp.h_numberOfResultPoints, sampleSize, aabb_0.min(), aabb_0.max());
-
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 13, 1.0f);
-
-				pp.DownSample(patchPoints_45.data(), patchPoints_45.size(), sampleSize, aabb_45.min(), aabb_45.max());
-				pp.MedianFilter(pp.h_resultPoints, pp.h_numberOfResultPoints, sampleSize, aabb_45.min(), aabb_45.max());
-
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), pp.h_resultPoints, pp.h_numberOfResultPoints, 200, 13, 1.0f);
-				*/
-
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_0.center(), Eigen::Matrix4f(transform_0), patchPoints_0.data(), patchPoints_0.size(), 200, 13, 1.0f);
-				SVO::IntegratePointCloudWithTSDF(&octree, aabb_45.center(), Eigen::Matrix4f(transform_45), patchPoints_45.data(), patchPoints_45.size(), 200, 13, 1.0f);
-			}
-
-			//{
-			//	float sampleSize = 0.1f;
-
-			//	printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints_0.size());
-
-			//	auto t = Time::Now();
-
-			//	pp.DownSample(patchPoints_0.data(), patchPoints_0.size(), sampleSize, aabb_0.min(), aabb_0.max());
-
-			//	t = Time::End(t, "DownSampling");
-
-			//	printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
-
-			//	//for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
-			//	//{
-			//	//	auto& p = pp.h_resultPoints[i];
-
-			//	//	//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
-
-			//	//	VisualDebugging::AddSphere("DownSample", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Blue);
-			//	//}
-			//}
-
-			//{
-			//	float sampleSize = 0.1f;
-
-			//	printf("[[[ patchPoints.size() ]]] : %llu\n", patchPoints_0.size());
-
-			//	auto t = Time::Now();
-
-			//	pp.MedianFilter(patchPoints_0.data(), patchPoints_0.size(), sampleSize, aabb_45.min(), aabb_45.max());
-
-			//	t = Time::End(t, "MedianFilter");
-
-			//	printf("[[[ *pp.h_numberOfResultPoints ]]] : %llu\n", pp.h_numberOfResultPoints);
-
-			//	//for (size_t i = 0; i < pp.h_numberOfResultPoints; i++)
-			//	//{
-			//	//	auto& p = pp.h_resultPoints[i];
-
-			//	//	//p += Eigen::Vector3f(0.0f, 0.0f, 10.0f);
-
-			//	//	VisualDebugging::AddSphere("Filter", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 0.0f }, Color4::Red);
-			//	//}
-			//}
-		}
-
-		SVO::TraverseOctree(&octree, [&](const SVO::SVONode& node, int depth) {
-
-			//std::cout << "Node TSDF Value: " << node.tsdfValue << std::endl;
-
-			//if (node.occupied)
-			{
-				stringstream ss;
-				ss << "Cubes_" << depth;
-				VisualDebugging::AddCube(ss.str(), node.center, { node.size, node.size, node.size }, { 0.0f, 0.0f, 1.0f }, Color4::White);
-			}
-			});
-
-		vector<SVO::Triangle> triangles;
-		SVO::ExtractTrianglesFromOctree(&octree, triangles);
-		printf("triangles : %llu\n", triangles.size());
-
-		for (auto& t : triangles)
-		{
-			VisualDebugging::AddTriangle("t", t.vertices[0], t.vertices[1], t.vertices[2], Color4::White);
-		}
+		LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
 
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
 		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
 		});
 
-	app.AddAppUpdateCallback([&](App* pApp) {
-		//cout << "App Update" << endl;
-		});
+	//app.AddAppUpdateCallback([&](App* pApp) {
+	//	auto renderer = pApp->GetRenderer();
+	//	vtkCamera* camera = renderer->GetActiveCamera();
+
+	//	auto viewMatrix = camera->GetModelViewTransformMatrix();
+
+	//	Eigen::Vector3d cameraPosition(camera->GetPosition());
+	//	Eigen::Vector3d cameraFocalPoint(camera->GetFocalPoint());
+	//	Eigen::Vector3d cameraUp(camera->GetViewUp());
+
+	//	auto linearTransform = planeActor->GetUserTransform();
+	//	vtkTransform* transform = vtkTransform::SafeDownCast(linearTransform);
+	//	transform->Identity();
+	//	//transform->Translate(cameraFocalPoint);
+
+	//	Eigen::Vector3d cameraDirection = cameraFocalPoint - cameraPosition;
+	//	cameraDirection.normalize();
+
+	//	Eigen::Vector3d planePosition = cameraPosition + cameraDirection * 1000.0f;
+
+	//	transform->Translate(planePosition.data());
+
+	//	renderer->GetRenderWindow()->Render();
+	//	renderer->Render();
+	//	});
 
 	app.AddKeyPressCallback(OnKeyPress);
-	app.Run();
+	app.Run(256, 480, false);
 
 	return 0;
 }

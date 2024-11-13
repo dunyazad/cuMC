@@ -34,6 +34,8 @@ set(cuda_source_list
     src/CUDA/AOCtree.cu
     src/CUDA/Processing.cuh
     src/CUDA/Processing.cu
+    src/CUDA/IndexedTriangleSet.cuh
+    src/CUDA/IndexedTriangleSet.cu
 )
 
 # List of C++ source files

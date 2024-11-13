@@ -45,21 +45,21 @@ namespace Algorithm
 
     inline void kdTree::swap(kdNode* x, kdNode* y)
     {
-#if defined(__CUDA_ARCH__)
-        kdNode* tmp;
-        cudaMallocManaged(&tmp, sizeof(kdNode));
-
-        cudaMemcpy(tmp, x, sizeof(kdNode), cudaMemcpyDeviceToDevice);
-        cudaDeviceSynchronize();
-
-        cudaMemcpy(x, y, sizeof(kdNode), cudaMemcpyDeviceToDevice);
-        cudaDeviceSynchronize();
-
-        cudaMemcpy(y, tmp, sizeof(kdNode), cudaMemcpyDeviceToDevice);
-        cudaDeviceSynchronize();
-
-        cudaFree(tmp);
-#else
+//#if defined(__CUDA_ARCH__)
+//        kdNode* tmp;
+//        cudaMallocManaged(&tmp, sizeof(kdNode));
+//
+//        cudaMemcpy(tmp, x, sizeof(kdNode), cudaMemcpyDeviceToDevice);
+//        cudaDeviceSynchronize();
+//
+//        cudaMemcpy(x, y, sizeof(kdNode), cudaMemcpyDeviceToDevice);
+//        cudaDeviceSynchronize();
+//
+//        cudaMemcpy(y, tmp, sizeof(kdNode), cudaMemcpyDeviceToDevice);
+//        cudaDeviceSynchronize();
+//
+//        cudaFree(tmp);
+//#else
         float tmp[MAX_DIM];
         int id;
         tmp[0] = x->x[0]; tmp[1] = x->x[1]; tmp[2] = x->x[2];
@@ -73,7 +73,7 @@ namespace Algorithm
         y->x[0] = tmp[0]; y->x[1] = tmp[1]; y->x[2] = tmp[2];
         //memcpy(y->x, tmp, sizeof(tmp));
         y->id = id;
-#endif
+//#endif
     }
 
     kdNode* kdTree::findMedian(kdNode* start, kdNode* end, int idx)

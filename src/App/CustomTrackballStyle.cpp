@@ -1,4 +1,5 @@
 #include <App/CustomTrackballStyle.h>
+#include <App/App.h>
 
 // Implement the New method
 vtkStandardNewMacro(CustomTrackballStyle);
@@ -55,4 +56,14 @@ void CustomTrackballStyle::OnRightButtonUp()
 void CustomTrackballStyle::HandleBothButtons()
 {
     std::cout << "Custom behavior for both buttons being pressed" << std::endl;
+}
+
+void CustomTrackballStyle::OnKeyPress()
+{
+    std::string key = this->GetInteractor()->GetKeySym();
+    std::cout << "Key pressed: " << key << std::endl;
+
+    app->OnKeyPress();
+
+    vtkInteractorStyleTrackballCamera::OnKeyPress();
 }

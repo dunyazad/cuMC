@@ -36,16 +36,18 @@ App::~App()
     s_instances.erase(this);
 }
 
-void App::Run()
+void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool maximizeConsoleWindow)
 {
-    MaximizeConsoleWindowOnMonitor(1);
+    if (maximizeConsoleWindow)
+    {
+        MaximizeConsoleWindowOnMonitor(1);
+    }
 
     renderer = vtkSmartPointer<vtkRenderer>::New();
     renderer->SetBackground(0.3, 0.5, 0.7);
 
     renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-    renderWindow->SetSize(1920, 1080);
-    //renderWindow->SetSize(256, 480);
+    renderWindow->SetSize(windowWidth, windowHeight);
     renderWindow->AddRenderer(renderer);
 
     interactor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
@@ -56,11 +58,10 @@ void App::Run()
 
     VisualDebugging::Initialize(renderer);
 
-    MaximizeVTKWindowOnMonitor(renderWindow, 2);
-
-    keyPressCallback = vtkSmartPointer<vtkCallbackCommand>::New();
-    keyPressCallback->SetCallback(OnKeyPress);
-    keyPressCallback->SetClientData(renderer);
+    if (maximizeRenderWindow)
+    {
+        MaximizeVTKWindowOnMonitor(renderWindow, 2);
+    }
 
     timerCallback = vtkSmartPointer<TimerCallback>::New();
     timerCallback->SetApp(this);
@@ -70,12 +71,6 @@ void App::Run()
     if (timerId < 0) {
         std::cerr << "Error: Timer was not created!" << std::endl;
     }
-
-    interactor->AddObserver(vtkCommand::KeyPressEvent, keyPressCallback);
-
-    //vtkCamera* camera = renderer->GetActiveCamera();
-    //camera->SetParallelProjection(true);
-    //renderer->ResetCamera();
 
     for (auto& kvp : appStartCallbacks)
     {
@@ -142,12 +137,12 @@ void App::RemoveAppUpdateCallback(const string& name)
     }
 }
 
-void App::AddKeyPressCallback(function<void(vtkObject*, long unsigned int, void*, void*)> f)
+void App::AddKeyPressCallback(function<void(App*)> f)
 {
     AddKeyPressCallback("Default", f);
 }
 
-void App::AddKeyPressCallback(const string& name, function<void(vtkObject*, long unsigned int, void*, void*)> f)
+void App::AddKeyPressCallback(const string& name, function<void(App*)> f)
 {
     if (0 != keyPressCallbacks.count(name))
     {
@@ -177,13 +172,50 @@ void App::OnUpdate()
     }
 }
 
-void App::OnKeyPress(vtkObject* caller, long unsigned int eventId, void* clientData, void* callData)
+void App::OnKeyPress()
 {
 	for (auto& instance : s_instances)
 	{
 		for (auto& kvp : instance->keyPressCallbacks)
 		{
-			kvp.second(caller, eventId, clientData, callData);
+			kvp.second(instance);
 		}
 	}
+}
+
+void App::CaptureColorAndDepth(const string& saveDirectory)
+{
+    static int captureCount = 0;
+    std::stringstream ss;
+    ss << captureCount++;
+
+    std::string depthmapFileName = saveDirectory + "\\depth_" + ss.str() + ".png";
+    std::string colormapFileName = saveDirectory + "\\color_" + ss.str() + ".png";
+
+    vtkNew<vtkWindowToImageFilter> colorFilter;
+    colorFilter->SetInput(renderWindow);
+    colorFilter->SetInputBufferTypeToRGB();
+    colorFilter->Update();
+
+    vtkNew<vtkPNGWriter> colorWriter;
+    colorWriter->SetFileName(colormapFileName.c_str());
+    colorWriter->SetInputConnection(colorFilter->GetOutputPort());
+    colorWriter->Write();
+
+    vtkNew<vtkWindowToImageFilter> depthFilter;
+    depthFilter->SetInput(renderWindow);
+    depthFilter->SetInputBufferTypeToZBuffer();
+    depthFilter->Update();
+
+    vtkNew<vtkImageShiftScale> shiftScale;
+    shiftScale->SetInputConnection(depthFilter->GetOutputPort());
+    shiftScale->SetOutputScalarTypeToUnsignedChar();
+    shiftScale->SetShift(0);
+    shiftScale->SetScale(255);
+    shiftScale->Update();
+
+    vtkNew<vtkPNGWriter> depthWriter;
+    depthWriter->SetFileName(depthmapFileName.c_str());
+    depthWriter->SetInputConnection(shiftScale->GetOutputPort());
+    depthWriter->Write();
 }

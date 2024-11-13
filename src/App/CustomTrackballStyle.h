@@ -4,6 +4,8 @@
 #include <vtkRenderWindowInteractor.h>
 #include <vtkInteractorStyleTrackballCamera.h>
 
+class App;
+
 class CustomTrackballStyle : public vtkInteractorStyleTrackballCamera
 {
 public:
@@ -18,7 +20,12 @@ public:
     virtual void OnRightButtonUp() override;
     void HandleBothButtons();
 
+    void OnKeyPress() override;
+
+    inline void SetApp(App* app) { this->app = app; }
+
 private:
-    bool LeftButtonPressed;
-    bool RightButtonPressed;
+    App* app = nullptr;
+    bool LeftButtonPressed = false;
+    bool RightButtonPressed = false;
 };

@@ -3,6 +3,10 @@
 #include <stdHeaderFiles.h>
 #include <vtkHeaderFiles.h>
 
+#include <Eigen/Dense>
+#include <Eigen/Sparse>
+#include <Eigen/IterativeLinearSolvers>
+
 #include <Max.h>
 
 typedef unsigned char ubyte;
@@ -17,3 +21,6 @@ namespace Time
 
     string DateTime();
 }
+
+Eigen::Matrix4f vtkToEigen(const vtkMatrix4x4* vtkMat);
+vtkSmartPointer<vtkMatrix4x4> eigenToVtk(const Eigen::Matrix4f& eigenMat);
