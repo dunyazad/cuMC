@@ -27,6 +27,7 @@ size_t size_0 = 0;
 size_t size_45 = 0;
 float transform_0[16];
 float transform_45[16];
+Eigen::Vector3f cameraPosition;
 unsigned char image_0[400 * 480];
 unsigned char image_45[400 * 480];
 Eigen::Vector3f points_0[400 * 480];
@@ -55,6 +56,7 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	ifs.read((char*)&size_45, sizeof(size_t));
 	ifs.read((char*)&transform_0, sizeof(float) * 16);
 	ifs.read((char*)&transform_45, sizeof(float) * 16);
+	ifs.read((char*)&cameraPosition, sizeof(float) * 3);
 	ifs.read((char*)&image_0, sizeof(unsigned char) * 400 * 480);
 	ifs.read((char*)&image_45, sizeof(unsigned char) * 400 * 480);
 	ifs.read((char*)&points_0, sizeof(Eigen::Vector3f) * size_0);
@@ -179,6 +181,75 @@ void LoadPatch(int patchID, vtkRenderer* renderer)
 	renderer->AddActor(actor);
 }
 
+tuple<Eigen::Matrix4f, Eigen::Vector3f> LoadPatchTransform(int patchID)
+{
+	stringstream ss;
+	ss << "C:\\Debug\\Patches\\patch_" << patchID << ".pat";
+
+	ifstream ifs;
+	ifs.open(ss.str(), ios::in | ios::binary);
+
+	ifs.read((char*)&pid, sizeof(int));
+	ifs.read((char*)&size_0, sizeof(size_t));
+	ifs.read((char*)&size_45, sizeof(size_t));
+	ifs.read((char*)&transform_0, sizeof(float) * 16);
+	ifs.read((char*)&cameraPosition, sizeof(float) * 3);
+
+	ifs.close();
+
+	return make_tuple(Eigen::Matrix4f(transform_0), Eigen::Vector3f(cameraPosition));
+}
+
+void SaveTRNFile()
+{
+	ofstream ofs;
+	ofs.open("C:\\Debug\\Patches\\transforms.trn", ios::out | ios::binary);
+
+	for (size_t i = 0; i < 4252; i++)
+	{
+		printf("Patch : %4d\n", i);
+
+		auto [transform, cameraPosition] = LoadPatchTransform(i);
+
+		ofs.write((char*)transform.data(), sizeof(float) * 16);
+		ofs.write((char*)cameraPosition.data(), sizeof(float) * 3);
+	}
+	ofs.close();
+}
+
+void LoadTRNFile()
+{
+	ifstream ifs;
+	ifs.open("C:\\Debug\\Patches\\transforms.trn", ios::in | ios::binary);
+	for (size_t i = 0; i < 4252; i++)
+	{
+		printf("Patch %4d\n", i);
+
+		ifs.read((char*)&transform_0, sizeof(float) * 16);
+		ifs.read((char*)&cameraPosition, sizeof(float) * 3);
+		Eigen::Matrix4f transform(transform_0);
+
+		Eigen::Vector3f zero = (transform * Eigen::Vector4f(0.0f, 0.0f, 20.0f, 1.0f)).head<3>();
+		Eigen::Vector3f right = (transform * Eigen::Vector4f(1.0f, 0.0f, 0.0f, 0.0f)).head<3>();
+		Eigen::Vector3f up = (transform * Eigen::Vector4f(0.0f, 1.0f, 0.0f, 0.0f)).head<3>();
+		Eigen::Vector3f front = (transform * Eigen::Vector4f(0.0f, 0.0f, -1.0f, 0.0f)).head<3>();
+		Eigen::Vector3f cam = (transform * Eigen::Vector4f(cameraPosition.x(), cameraPosition.y(), cameraPosition.z(), 1.0f)).head<3>();
+
+		VisualDebugging::AddSphere("sphere", zero, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
+
+		//VisualDebugging::AddSphere("sphere", cam, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Blue);
+
+		//cout << cameraPosition.transpose() << endl;
+		//cout << cam.transpose() << endl;
+
+		VisualDebugging::AddLine("transform", zero, zero + right, Color4::Red);
+		VisualDebugging::AddLine("transform", zero, zero + up, Color4::Green);
+		VisualDebugging::AddLine("transform", zero, zero + (front * 10.0f), Color4::Yellow);
+
+		//return;
+	}
+}
+
 void LoadModel(vtkRenderer* renderer, const string& filename)
 {
 	vtkNew<vtkPLYReader> reader;
@@ -194,6 +265,8 @@ void LoadModel(vtkRenderer* renderer, const string& filename)
 	actor->SetMapper(mapper);
 
 	renderer->AddActor(actor);
+
+	renderer->ResetCamera();
 
 	vtkPoints* points = polyData->GetPoints();
 	vtkFloatArray* floatArray = vtkArrayDownCast<vtkFloatArray>(points->GetData());
@@ -245,6 +318,12 @@ int main()
 	App app;
 	app.AddAppStartCallback([&](App* pApp) {
 		auto renderer = pApp->GetRenderer();
+		auto camera = renderer->GetActiveCamera();
+		camera->SetParallelProjection(true);
+
+		//SaveTRNFile();
+
+		LoadTRNFile();
 
 		LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
 
@@ -280,7 +359,8 @@ int main()
 	//	});
 
 	app.AddKeyPressCallback(OnKeyPress);
-	app.Run(256, 480, false);
+	app.Run();
+	//app.Run(256, 480, false);
 
 	return 0;
 }
