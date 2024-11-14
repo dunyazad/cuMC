@@ -250,33 +250,79 @@ void App::CaptureColorAndDepth(const string& saveDirectory)
     std::stringstream ss;
     ss << captureCount++;
 
+    std::string depthDataFileName = saveDirectory + "\\depth_data_" + ss.str() + ".dpt";
     std::string depthmapFileName = saveDirectory + "\\depth_" + ss.str() + ".png";
     std::string colormapFileName = saveDirectory + "\\color_" + ss.str() + ".png";
 
-    vtkNew<vtkWindowToImageFilter> colorFilter;
-    colorFilter->SetInput(renderWindow);
-    colorFilter->SetInputBufferTypeToRGB();
-    colorFilter->Update();
+    {
+        vtkNew<vtkWindowToImageFilter> colorFilter;
+        colorFilter->SetInput(renderWindow);
+        colorFilter->SetInputBufferTypeToRGB();
+        colorFilter->Update();
 
-    vtkNew<vtkPNGWriter> colorWriter;
-    colorWriter->SetFileName(colormapFileName.c_str());
-    colorWriter->SetInputConnection(colorFilter->GetOutputPort());
-    colorWriter->Write();
+        vtkNew<vtkPNGWriter> colorWriter;
+        colorWriter->SetFileName(colormapFileName.c_str());
+        colorWriter->SetInputConnection(colorFilter->GetOutputPort());
+        colorWriter->Write();
+    }
 
-    vtkNew<vtkWindowToImageFilter> depthFilter;
-    depthFilter->SetInput(renderWindow);
-    depthFilter->SetInputBufferTypeToZBuffer();
-    depthFilter->Update();
+    {
+        vtkNew<vtkWindowToImageFilter> depthFilter;
+        depthFilter->SetInput(renderWindow);
+        depthFilter->SetInputBufferTypeToZBuffer();
+        depthFilter->Update();
 
-    vtkNew<vtkImageShiftScale> shiftScale;
-    shiftScale->SetInputConnection(depthFilter->GetOutputPort());
-    shiftScale->SetOutputScalarTypeToUnsignedChar();
-    shiftScale->SetShift(0);
-    shiftScale->SetScale(255);
-    shiftScale->Update();
+        vtkNew<vtkImageShiftScale> shiftScale;
+        shiftScale->SetInputConnection(depthFilter->GetOutputPort());
+        shiftScale->SetOutputScalarTypeToUnsignedChar();
+        shiftScale->SetShift(0);
+        shiftScale->SetScale(255);
+        shiftScale->Update();
 
-    vtkNew<vtkPNGWriter> depthWriter;
-    depthWriter->SetFileName(depthmapFileName.c_str());
-    depthWriter->SetInputConnection(shiftScale->GetOutputPort());
-    depthWriter->Write();
+        vtkNew<vtkPNGWriter> depthWriter;
+        depthWriter->SetFileName(depthmapFileName.c_str());
+        depthWriter->SetInputConnection(shiftScale->GetOutputPort());
+        depthWriter->Write();
+    }
+
+    {
+        ofstream ofs;
+        ofs.open(depthDataFileName, ios::out | ios::binary);
+
+        int width = 256;
+        int height = 480;
+        ofs.write((char*)&width, sizeof(int));
+        ofs.write((char*)&height, sizeof(int));
+
+        Eigen::Matrix4f viewMatrix = vtkToEigen(renderer->GetActiveCamera()->GetViewTransformMatrix());
+        Eigen::Matrix4f tm = viewMatrix.inverse();
+        //auto& tm = cameraTransforms[0];
+
+        vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+        windowToImageFilter->SetInput(GetRenderWindow());
+        windowToImageFilter->SetInputBufferTypeToZBuffer(); // Get the depth buffer
+        windowToImageFilter->Update();
+
+        // Access the depth buffer as an image
+        vtkSmartPointer<vtkImageData> depthImage = windowToImageFilter->GetOutput();
+
+        // Get the depth values as a float array
+        vtkSmartPointer<vtkFloatArray> depthArray = vtkFloatArray::SafeDownCast(depthImage->GetPointData()->GetScalars());
+
+        double* clippingRange = renderer->GetActiveCamera()->GetClippingRange();
+        float depthRatio = (float)(clippingRange[1] - clippingRange[0]);
+
+        vtkIdType index = 0;
+        for (float y = -24.0f; y < 24.0f; y += 0.1f)
+        {
+            for (float x = -12.8f; x < 12.8f; x += 0.1f)
+            {
+                float depth = depthArray->GetValue(index++);
+                auto p = Transform(tm, { x, y, -depth * depthRatio });
+                ofs.write((char*)p.data(), sizeof(Eigen::Vector3f));
+            }
+        }
+
+        ofs.close();
+    }
 }

@@ -473,11 +473,12 @@ int main()
 
 
 		{
-			auto& tm = cameraTransforms[0];
+			Eigen::Matrix4f viewMatrix = vtkToEigen(camera->GetViewTransformMatrix());
+			Eigen::Matrix4f tm = viewMatrix.inverse();
+			//auto& tm = cameraTransforms[0];
 
 			vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
 			windowToImageFilter->SetInput(pApp->GetRenderWindow());
-			//windowToImageFilter->SetMagnification(1); // No magnification
 			windowToImageFilter->SetInputBufferTypeToZBuffer(); // Get the depth buffer
 			windowToImageFilter->Update();
 
@@ -498,11 +499,12 @@ int main()
 					{
 						float depth = depthArray->GetValue(index++);
 
-						auto ps = Transform(tm, { x, y, -depth * depthRatio + 20.0f });
+						//auto ps = Transform(tm, { x, y, -depth * depthRatio + 20.0f });
+						auto ps = Transform(tm, { x, y, -depth * depthRatio});
 						auto pe = Transform(tm, { x, y, 20.0f });
 
 						//VD::AddLine("rays", ps, pe, Color4::Red);
-						VD::AddSphere("rayorigin", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
+						VD::AddSphere("Surface", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
 					}
 				}
 
