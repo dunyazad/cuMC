@@ -611,5 +611,6 @@ void OnKeyPress(App* app)
 	else if (key == "Insert")
 	{
 		printf("Camera Distance : %f\n", camera->GetDistance());
+		printf("Camera Parallel Scale : %f\n", camera->GetParallelScale());
 	}
 }

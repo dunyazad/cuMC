@@ -30,6 +30,11 @@ namespace Time
 	}
 }
 
+Eigen::Vector3f Transform(const Eigen::Matrix4f& tm, const Eigen::Vector3f& p)
+{
+	return (tm * Eigen::Vector4f(p.x(), p.y(), p.z(), 1.0f)).head<3>();
+}
+
 Eigen::Matrix4f vtkToEigen(const vtkMatrix4x4* vtkMat)
 {
 	Eigen::Matrix4f eigenMat;

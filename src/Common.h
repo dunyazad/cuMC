@@ -22,5 +22,7 @@ namespace Time
     string DateTime();
 }
 
+Eigen::Vector3f Transform(const Eigen::Matrix4f& tm, const Eigen::Vector3f& p);
+
 Eigen::Matrix4f vtkToEigen(const vtkMatrix4x4* vtkMat);
 vtkSmartPointer<vtkMatrix4x4> eigenToVtk(const Eigen::Matrix4f& eigenMat);

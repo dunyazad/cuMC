@@ -10,16 +10,31 @@ class App;
 class TimerCallback : public vtkCommand
 {
 public:
-    static App* s_app;
     static TimerCallback* New();
-    static void SetApp(App* app);
-
     TimerCallback() = default;
+
+    App* app;
+    void SetApp(App* app);
 
     virtual void Execute(vtkObject* caller, unsigned long eventId, void* vtkNotUsed(callData)) override;
 
 private:
-    void animate();
+    void OnTimer();
+};
+
+class PostRenderCallback : public vtkCommand
+{
+public:
+    static PostRenderCallback* New();
+    PostRenderCallback() = default;
+
+    App* app;
+    void SetApp(App* app);
+
+    virtual void Execute(vtkObject * caller, unsigned long eventId, void* vtkNotUsed(callData)) override;
+
+private:
+    void OnPostRender();
 };
 
 class App
@@ -40,12 +55,18 @@ public:
     void RemoveAppUpdateCallback();
     void RemoveAppUpdateCallback(const string& name);
 
+    void AddAppPostRenderCallback(function<void(App*)> f);
+    void AddAppPostRenderCallback(const string& name, function<void(App*)> f);
+    void RemoveAppPostRenderCallback();
+    void RemoveAppPostRenderCallback(const string& name);
+
     void AddKeyPressCallback(function<void(App*)> f);
     void AddKeyPressCallback(const string& name, function<void(App*)> f);
     void RemoveKeyPressCallback();
     void RemoveKeyPressCallback(const string& name);
 
     void OnUpdate();
+    void OnPostRender();
 
     void CaptureColorAndDepth(const string& saveDirectory);
 
@@ -65,9 +86,10 @@ private:
     vtkSmartPointer<vtkCallbackCommand> keyPressCallback;
 
     vtkSmartPointer<TimerCallback> timerCallback;
+    vtkSmartPointer<PostRenderCallback> postRenderCallback;
 
     map<string, function<void(App*)>> appStartCallbacks;
     map<string, function<void(App*)>> appUpdateCallbacks;
-    //vtkObject* caller, long unsigned int eventId, void* clientData, void* callData
+    map<string, function<void(App*)>> appPostRenderCallbacks;
     map<string, function<void(App*)>> keyPressCallbacks;
 };

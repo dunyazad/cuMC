@@ -1,17 +1,15 @@
 #include <App/App.h>
 
-App* TimerCallback::s_app = nullptr;
-
-set<App*> App:: s_instances;
+set<App*> App::s_instances;
 
 TimerCallback* TimerCallback::New() { return new TimerCallback; }
-void TimerCallback::SetApp(App* app) { s_app = app; }
+void TimerCallback::SetApp(App* app) { this->app = app; }
 
 void TimerCallback::Execute(vtkObject* caller, unsigned long eventId, void* vtkNotUsed(callData))
 {
     if (eventId == vtkCommand::TimerEvent)
     {
-        animate();
+        OnTimer();
     }
     else
     {
@@ -19,12 +17,33 @@ void TimerCallback::Execute(vtkObject* caller, unsigned long eventId, void* vtkN
     }
 }
 
-void TimerCallback::animate()
+void TimerCallback::OnTimer()
 {
-    s_app->OnUpdate();
+    app->OnUpdate();
 
     VisualDebugging::Update();
 }
+
+PostRenderCallback* PostRenderCallback::New() { return new PostRenderCallback; }
+void PostRenderCallback::SetApp(App* app) { this->app = app; }
+
+void PostRenderCallback::Execute(vtkObject* caller, unsigned long eventId, void* vtkNotUsed(callData))
+{
+    if (eventId == vtkCommand::EndEvent)
+    {
+        OnPostRender();
+    }
+    else
+    {
+        std::cerr << "Unexpected event ID: " << eventId << std::endl;
+    }
+}
+
+void PostRenderCallback::OnPostRender()
+{
+    app->OnPostRender();
+}
+
 
 App::App()
 {
@@ -45,6 +64,8 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
 
     renderer = vtkSmartPointer<vtkRenderer>::New();
     renderer->SetBackground(0.3, 0.5, 0.7);
+
+    renderer->GetActiveCamera()->SetClippingRange(0.001, 40.0);
 
     renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
     renderWindow->SetSize(windowWidth, windowHeight);
@@ -72,6 +93,11 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
         std::cerr << "Error: Timer was not created!" << std::endl;
     }
 
+    postRenderCallback = vtkSmartPointer<PostRenderCallback>::New();
+    postRenderCallback->SetApp(this);
+
+    renderWindow->AddObserver(vtkCommand::EndEvent, postRenderCallback);
+    
     for (auto& kvp : appStartCallbacks)
     {
         kvp.second(this);
@@ -137,6 +163,33 @@ void App::RemoveAppUpdateCallback(const string& name)
     }
 }
 
+void App::AddAppPostRenderCallback(function<void(App*)> f)
+{
+    AddAppPostRenderCallback("Default", f);
+}
+
+void App::AddAppPostRenderCallback(const string& name, function<void(App*)> f)
+{
+    if (0 != appPostRenderCallbacks.count(name))
+    {
+        printf("[Error] same name callback exists!");
+    }
+    appPostRenderCallbacks[name] = f;
+}
+
+void App::RemoveAppPostRenderCallback()
+{
+    RemoveAppPostRenderCallback("Default");
+}
+
+void App::RemoveAppPostRenderCallback(const string& name)
+{
+    if (0 != appPostRenderCallbacks.count(name))
+    {
+        appPostRenderCallbacks.erase(name);
+    }
+}
+
 void App::AddKeyPressCallback(function<void(App*)> f)
 {
     AddKeyPressCallback("Default", f);
@@ -167,6 +220,14 @@ void App::RemoveKeyPressCallback(const string& name)
 void App::OnUpdate()
 {
     for (auto& kvp : appUpdateCallbacks)
+    {
+        kvp.second(this);
+    }
+}
+
+void App::OnPostRender()
+{
+    for (auto& kvp : appPostRenderCallbacks)
     {
         kvp.second(this);
     }

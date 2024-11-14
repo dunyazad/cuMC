@@ -92,6 +92,7 @@
 #include <vtkContourFilter.h>
 #include <vtkCellLocator.h>
 #include <vtkSignedDistance.h>
+#include <vtkTransformFilter.h>
 #include <vtkMarchingCubes.h>
 #include <vtkDecimatePro.h>
 #include <vtkWindowToImageFilter.h>
@@ -107,4 +108,5 @@
 
 #include <vtkImageCast.h>
 #include <vtkImageData.h>
+#include <vtkPNGReader.h>
 #include <vtkPNGWriter.h>

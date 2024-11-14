@@ -10,6 +10,7 @@
 #include <Algorithm/vtkQuantizingFilter.h>
 
 #include <Debugging/VisualDebugging.h>
+using VD = VisualDebugging;
 
 #include <CUDA/HashTable.cuh>
 #include <CUDA/KDTree.cuh>
@@ -42,6 +43,8 @@ Eigen::AlignedBox3f lmax(Eigen::Vector3f(FLT_MAX, FLT_MAX, FLT_MAX), Eigen::Vect
 vector<Eigen::Vector3f> patchPoints_0;
 vector<Eigen::Vector3f> patchPoints_45;
 vector<Eigen::Vector3f> inputPoints;
+
+vector<Eigen::Matrix4f> cameraTransforms;
 
 void LoadPatch(int patchID, vtkRenderer* renderer)
 {
@@ -205,6 +208,9 @@ void SaveTRNFile()
 	ofstream ofs;
 	ofs.open("C:\\Debug\\Patches\\transforms.trn", ios::out | ios::binary);
 
+	int numberOfTransforms = 4252;
+	ofs.write((char*)&numberOfTransforms, sizeof(int));
+
 	for (size_t i = 0; i < 4252; i++)
 	{
 		printf("Patch : %4d\n", i);
@@ -221,7 +227,11 @@ void LoadTRNFile()
 {
 	ifstream ifs;
 	ifs.open("C:\\Debug\\Patches\\transforms.trn", ios::in | ios::binary);
-	for (size_t i = 0; i < 4252; i++)
+	
+	int numberOfTransforms = 0;
+	ifs.read((char*)&numberOfTransforms, sizeof(int));
+
+	for (size_t i = 0; i < numberOfTransforms; i++)
 	{
 		printf("Patch %4d\n", i);
 
@@ -229,24 +239,18 @@ void LoadTRNFile()
 		ifs.read((char*)&cameraPosition, sizeof(float) * 3);
 		Eigen::Matrix4f transform(transform_0);
 
+		cameraTransforms.push_back(transform);
+
 		Eigen::Vector3f zero = (transform * Eigen::Vector4f(0.0f, 0.0f, 20.0f, 1.0f)).head<3>();
 		Eigen::Vector3f right = (transform * Eigen::Vector4f(1.0f, 0.0f, 0.0f, 0.0f)).head<3>();
 		Eigen::Vector3f up = (transform * Eigen::Vector4f(0.0f, 1.0f, 0.0f, 0.0f)).head<3>();
 		Eigen::Vector3f front = (transform * Eigen::Vector4f(0.0f, 0.0f, -1.0f, 0.0f)).head<3>();
 		Eigen::Vector3f cam = (transform * Eigen::Vector4f(cameraPosition.x(), cameraPosition.y(), cameraPosition.z(), 1.0f)).head<3>();
 
-		VisualDebugging::AddSphere("sphere", zero, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
-
-		//VisualDebugging::AddSphere("sphere", cam, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Blue);
-
-		//cout << cameraPosition.transpose() << endl;
-		//cout << cam.transpose() << endl;
-
-		VisualDebugging::AddLine("transform", zero, zero + right, Color4::Red);
-		VisualDebugging::AddLine("transform", zero, zero + up, Color4::Green);
-		VisualDebugging::AddLine("transform", zero, zero + (front * 10.0f), Color4::Yellow);
-
-		//return;
+		//VisualDebugging::AddSphere("sphere", zero, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
+		//VisualDebugging::AddLine("transform", zero, zero + right, Color4::Red);
+		//VisualDebugging::AddLine("transform", zero, zero + up, Color4::Green);
+		//VisualDebugging::AddLine("transform", zero, zero + (front * 10.0f), Color4::Yellow);
 	}
 }
 
@@ -267,6 +271,8 @@ void LoadModel(vtkRenderer* renderer, const string& filename)
 	renderer->AddActor(actor);
 
 	renderer->ResetCamera();
+
+	return;
 
 	vtkPoints* points = polyData->GetPoints();
 	vtkFloatArray* floatArray = vtkArrayDownCast<vtkFloatArray>(points->GetData());
@@ -311,6 +317,86 @@ void LoadModel(vtkRenderer* renderer, const string& filename)
 	t = Time::End(t, "KDTree Build");
 }
 
+int transformIndex = 0;
+void MoveCamera(App* pApp, vtkCamera* camera, const Eigen::Matrix4f& tm)
+{
+	Eigen::Vector3f forward = tm.block<3, 1>(0, 2);
+	Eigen::Vector3f position = tm.block<3, 1>(0, 3);
+
+	Eigen::Vector3f cameraPosition = position + forward * 20.0f;
+
+	camera->SetPosition(cameraPosition.x(), cameraPosition.y(), cameraPosition.z());
+	camera->SetFocalPoint(position.x(), position.y(), position.z());
+	//camera->SetParallelScale(10.0);
+
+	//float pixel_to_world_ratio = 0.1;
+	//float world_height = 480.0f * pixel_to_world_ratio;
+	//camera->SetParallelScale(world_height / 2);
+
+	camera->Modified();
+
+	pApp->GetRenderer()->ResetCameraClippingRange();
+	pApp->GetRenderWindow()->Render();
+
+}
+
+void CaptureNextFrame(App* pApp)
+{
+	if (transformIndex >= cameraTransforms.size()) return;
+
+	vtkCamera* camera = pApp->GetRenderer()->GetActiveCamera();
+
+	auto& tm = cameraTransforms[transformIndex];
+
+	MoveCamera(pApp, camera, tm);
+
+	pApp->CaptureColorAndDepth("C:\\Resources\\2D\\Captured\\RGBD");
+	printf("Saved %d\n", transformIndex);
+
+	transformIndex++;
+}
+
+void LoadDepthImage()
+{
+	std::string depthmapFileName = "C:\\Resources\\2D\\Captured\\RGBD\\depth_0.png";
+
+	vtkSmartPointer<vtkPNGReader> reader = vtkSmartPointer<vtkPNGReader>::New();
+	reader->SetFileName(depthmapFileName.c_str());
+	reader->Update();
+
+	vtkImageData* imageData = reader->GetOutput();
+	int* dims = imageData->GetDimensions();
+
+	vtkUnsignedCharArray* pixelArray = vtkUnsignedCharArray::SafeDownCast(imageData->GetPointData()->GetScalars());
+
+	if (!pixelArray) {
+		std::cerr << "Failed to get pixel data from image!" << std::endl;
+		return;
+	}
+
+	for (int z = 0; z < dims[2]; z++) {
+		for (int y = 0; y < dims[1]; y++) {
+			for (int x = 0; x < dims[0]; x++) {
+				int idx = z * dims[0] * dims[1] + y * dims[0] + x;
+				unsigned char pixelValue = pixelArray->GetValue(idx);
+
+				double depthValue = static_cast<double>(pixelValue) / 255.0;
+
+				depthValue *= 200;
+
+				// Print out depth value if needed
+				//std::cout << "Depth value at (" << x << ", " << y << "): " << depthValue << std::endl;
+
+				Eigen::Vector4f p4(x * 0.05f - 12.8f, y * 0.05f - 24.0f, -depthValue, 1.0f);
+				Eigen::Vector3f p = (cameraTransforms[0] * p4).head<3>();
+
+				VisualDebugging::AddSphere("depth", p, { 0.05f, 0.05f, 0.05f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
+			}
+		}
+	}
+}
+
+bool enabledToCapture = false;
 int main()
 {
 	vtkActor* planeActor = nullptr;
@@ -318,49 +404,141 @@ int main()
 	App app;
 	app.AddAppStartCallback([&](App* pApp) {
 		auto renderer = pApp->GetRenderer();
+
+		LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+
 		auto camera = renderer->GetActiveCamera();
 		camera->SetParallelProjection(true);
+		// Parallel Scale은 카메라 절반 높이
+		// 픽셀당 3D 공간의 유닛 * 창 높이 / 2
+		// 여기에선 256 x 480이므로 픽셀당 0.1, 창높이 480
+		// 480 * 0.1 / 2 = 24
+		camera->SetParallelScale(24);
+
+		LoadPatch(0, renderer);
 
 		//SaveTRNFile();
 
 		LoadTRNFile();
 
-		LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+		//LoadDepthImage();
 
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
-		VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
+		MoveCamera(pApp, camera, cameraTransforms[0]);
+
+		{
+			auto& tm = cameraTransforms[0];
+
+#pragma region Drawing ViewPort
+			/*
+			Eigen::Vector3f cd = -tm.block<3, 1>(0, 2);
+
+			//float ratio = 0.05f;
+			float ratio = 0.1f;
+
+			Eigen::Vector3f topLeft = (tm * Eigen::Vector4f(-128.0f * ratio, 240.0f * ratio, 20.0f, 1.0f)).head<3>();
+			Eigen::Vector3f topRight = (tm * Eigen::Vector4f(128.0f * ratio, 240.0f * ratio, 20.0f, 1.0f)).head<3>();
+			Eigen::Vector3f bottomLeft = (tm * Eigen::Vector4f(-128.0f * ratio, -240.0f * ratio, 20.0f, 1.0f)).head<3>();
+			Eigen::Vector3f bottomRight = (tm * Eigen::Vector4f(128.0f * ratio, -240.0f * ratio, 20.0f, 1.0f)).head<3>();
+
+			Eigen::Vector3f ttl = topLeft + cd * 20.0f;
+			Eigen::Vector3f ttr = topRight + cd * 20.0f;
+			Eigen::Vector3f tbl = bottomLeft + cd * 20.0f;
+			Eigen::Vector3f tbr = bottomRight + cd * 20.0f;
+
+			VD::AddLine("rays", topLeft, ttl, Color4::Red);
+			VD::AddLine("rays", topRight, ttr, Color4::Red);
+			VD::AddLine("rays", bottomLeft, tbl, Color4::Red);
+			VD::AddLine("rays", bottomRight, tbr, Color4::Red);
+
+			VD::AddLine("rays", ttl, ttr, Color4::Red);
+			VD::AddLine("rays", tbl, tbr, Color4::Red);
+			VD::AddLine("rays", ttl, tbl, Color4::Red);
+			VD::AddLine("rays", ttr, tbr, Color4::Red);
+			*/
+#pragma endregion
+
+
+			//for (float y = -24.0f; y < 24.0f; y += 0.1f)
+			//{
+			//	for (float x = -12.8f; x < 12.8f; x += 0.1f)
+			//	{
+			//		auto ps = Transform(tm, { x, y, 0.0f });
+			//		auto pe = Transform(tm, { x, y, 20.0f });
+
+			//		//VD::AddLine("rays", ps, pe, Color4::Red);
+			//		VD::AddSphere("rayorigin", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
+			//	}
+			//}
+		}
+
+
+		{
+			auto& tm = cameraTransforms[0];
+
+			vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+			windowToImageFilter->SetInput(pApp->GetRenderWindow());
+			//windowToImageFilter->SetMagnification(1); // No magnification
+			windowToImageFilter->SetInputBufferTypeToZBuffer(); // Get the depth buffer
+			windowToImageFilter->Update();
+
+			// Access the depth buffer as an image
+			vtkSmartPointer<vtkImageData> depthImage = windowToImageFilter->GetOutput();
+
+			// Get the depth values as a float array
+			vtkSmartPointer<vtkFloatArray> depthArray = vtkFloatArray::SafeDownCast(depthImage->GetPointData()->GetScalars());
+
+			double* clippingRange = camera->GetClippingRange();
+			float depthRatio = (float)(clippingRange[1] - clippingRange[0]);
+
+			if (depthArray) {
+				vtkIdType index = 0;
+				for (float y = -24.0f; y < 24.0f; y += 0.1f)
+				{
+					for (float x = -12.8f; x < 12.8f; x += 0.1f)
+					{
+						float depth = depthArray->GetValue(index++);
+
+						auto ps = Transform(tm, { x, y, -depth * depthRatio + 20.0f });
+						auto pe = Transform(tm, { x, y, 20.0f });
+
+						//VD::AddLine("rays", ps, pe, Color4::Red);
+						VD::AddSphere("rayorigin", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
+					}
+				}
+
+				//// Iterate over the depth values (if needed)
+				//for (vtkIdType i = 0; i < depthArray->GetNumberOfTuples(); i++) {
+				//	float depth = depthArray->GetValue(i);
+				//	// Use depth as needed (for example, printing)
+				//	//std::cout << "Depth at point " << i << ": " << depth << std::endl;
+
+				//	float x = (float)(i % 256) * 0.1f;
+				//	float y = (float)(i / 256) * 0.1f;
+
+				//	Eigen::Vector3f p = (tm * Eigen::Vector4f(x, y, -depth, 1.0f)).head<3>();
+
+				//	VD::AddSphere("points", p, { 0.05f, 0.05f , 0.05f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
+				//}
+			}
+		}
+
+		//VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
+		//VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
+		//VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
+
+		enabledToCapture = true;
 		});
 
-	//app.AddAppUpdateCallback([&](App* pApp) {
-	//	auto renderer = pApp->GetRenderer();
-	//	vtkCamera* camera = renderer->GetActiveCamera();
-
-	//	auto viewMatrix = camera->GetModelViewTransformMatrix();
-
-	//	Eigen::Vector3d cameraPosition(camera->GetPosition());
-	//	Eigen::Vector3d cameraFocalPoint(camera->GetFocalPoint());
-	//	Eigen::Vector3d cameraUp(camera->GetViewUp());
-
-	//	auto linearTransform = planeActor->GetUserTransform();
-	//	vtkTransform* transform = vtkTransform::SafeDownCast(linearTransform);
-	//	transform->Identity();
-	//	//transform->Translate(cameraFocalPoint);
-
-	//	Eigen::Vector3d cameraDirection = cameraFocalPoint - cameraPosition;
-	//	cameraDirection.normalize();
-
-	//	Eigen::Vector3d planePosition = cameraPosition + cameraDirection * 1000.0f;
-
-	//	transform->Translate(planePosition.data());
-
-	//	renderer->GetRenderWindow()->Render();
-	//	renderer->Render();
-	//	});
+	app.AddAppUpdateCallback([&](App* pApp) {
+		if (enabledToCapture)
+		{
+			//CaptureNextFrame(pApp);
+		}
+	});
 
 	app.AddKeyPressCallback(OnKeyPress);
-	app.Run();
-	//app.Run(256, 480, false);
+	//app.Run();
+	app.Run(256, 480, false);
 
 	return 0;
 }
