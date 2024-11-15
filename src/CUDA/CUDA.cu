@@ -301,7 +301,7 @@ namespace CUDA
 		uint32_t found = 0;
 		float3 mean = { 0.0f, 0.0f, 0.0f };
 
-		int offset = 10;
+		int offset = 5;
 		int currentOffset = 0;
 		while (currentOffset <= offset)
 		{
@@ -313,8 +313,8 @@ namespace CUDA
 				{
 					if (x < 0 || x > width) continue;
 					
-					if ((x == -currentOffset || x == currentOffset) ||
-						(y == -currentOffset || y == currentOffset))
+					if ((x == xIndex - currentOffset || x == xIndex + currentOffset) ||
+						(y == yIndex - currentOffset || y == yIndex + currentOffset))
 					{
 						auto npoint = points[y * width + x];
 
@@ -323,7 +323,7 @@ namespace CUDA
 							npoint.y - currentPoint.y,
 							npoint.z - currentPoint.z);
 
-						if (distance <= 1.0f)
+						if (distance <= 0.5f)
 						{
 							mean += npoint;
 							found++;
@@ -350,8 +350,8 @@ namespace CUDA
 				{
 					if (x < 0 || x > width) continue;
 
-					if ((x == -currentOffset || x == currentOffset) ||
-						(y == -currentOffset || y == currentOffset))
+					if ((x == xIndex - currentOffset || x == xIndex + currentOffset) ||
+						(y == yIndex - currentOffset || y == yIndex + currentOffset))
 					{
 						auto npoint = points[y * width + x];
 						auto distance = norm3d(
@@ -359,9 +359,9 @@ namespace CUDA
 							npoint.y - currentPoint.y,
 							npoint.z - currentPoint.z);
 
-						if (distance <= 1.0f)
+						if (distance <= 0.5f)
 						{
-							mean += npoint;
+							//mean += npoint;
 
 							Cxx += npoint.x * npoint.x;
 							Cxy += npoint.x * npoint.y;
@@ -390,15 +390,88 @@ namespace CUDA
 		normals[threadid] = normal;
 	}
 
+	__global__ void Kernel_EverageNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals)
+	{
+		uint32_t threadid = blockDim.x * blockIdx.x + threadIdx.x;
+		if (threadid > width * height - 1) return;
+
+		int xIndex = threadid % width;
+		int yIndex = threadid / width;
+
+		auto currentPoint = points[threadid];
+		auto currentNormal = normals[threadid];
+
+		uint32_t found = 1;
+		float3 mean = normals[threadid];
+
+		int offset = 5;
+		int currentOffset = 0;
+		while (currentOffset <= offset)
+		{
+			for (int y = yIndex - currentOffset; y <= yIndex + currentOffset; y++)
+			{
+				if (y < 0 || y > height) continue;
+
+				for (int x = xIndex - currentOffset; x <= xIndex + currentOffset; x++)
+				{
+					if (x < 0 || x > width) continue;
+
+					if ((x == xIndex - currentOffset || x == xIndex + currentOffset) ||
+						(y == yIndex - currentOffset || y == yIndex + currentOffset))
+					{
+						auto npoint = points[y * width + x];
+						auto nnormal = normals[y * width + x];
+
+						auto distance = norm3d(
+							npoint.x - currentPoint.x,
+							npoint.y - currentPoint.y,
+							npoint.z - currentPoint.z);
+
+						if (distance <= 0.5f)
+						{
+							mean += nnormal;
+							found++;
+						}
+					}
+				}
+			}
+			currentOffset++;
+		}
+
+		mean /= (float)found;
+
+		normals[threadid] = mean;
+	}
 	void GeneratePatchNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals)
 	{
-		int mingridsize;
-		int threadblocksize;
-		checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_GeneratePatchNormals, 0, 0));
-		auto gridsize = (numberOfPoints - 1) / threadblocksize;
+		{
+			nvtxRangePushA("GeneratePatchNormals");
 
-		Kernel_GeneratePatchNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
+			int mingridsize;
+			int threadblocksize;
+			checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_GeneratePatchNormals, 0, 0));
+			auto gridsize = (numberOfPoints - 1) / threadblocksize;
 
-		checkCudaErrors(cudaDeviceSynchronize());
+			Kernel_GeneratePatchNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
+
+			checkCudaErrors(cudaDeviceSynchronize());
+
+			nvtxRangePop();
+		}
+
+		{
+			nvtxRangePushA("EverageNormals");
+
+			int mingridsize;
+			int threadblocksize;
+			checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_EverageNormals, 0, 0));
+			auto gridsize = (numberOfPoints - 1) / threadblocksize;
+
+			Kernel_EverageNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
+
+			checkCudaErrors(cudaDeviceSynchronize());
+
+			nvtxRangePop();
+		}
 	}
 }
