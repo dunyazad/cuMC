@@ -1,5 +1,7 @@
 #include <App/App.h>
 
+#include <CUDA/cuda.cuh>
+
 set<App*> App::s_instances;
 
 TimerCallback* TimerCallback::New() { return new TimerCallback; }
@@ -325,4 +327,118 @@ void App::CaptureColorAndDepth(const string& saveDirectory)
 
         ofs.close();
     }
+}
+
+void App::CaptureAsPointCloud(const string& saveDirectory)
+{
+    static int captureCount = 0;
+    std::stringstream ss;
+    ss << captureCount++;
+    std::string pointCloudFileName = saveDirectory + "\\point_" + ss.str() + ".ply";
+
+    auto normals = vtkSmartPointer<vtkFloatArray>::New();
+    normals->SetNumberOfComponents(3);
+    normals->SetName("Normals");
+
+    auto colors = vtkSmartPointer<vtkUnsignedCharArray>::New();
+    colors->SetNumberOfComponents(3); // RGB
+    colors->SetName("Colors");
+
+    auto windowToColorImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+    windowToColorImageFilter->SetInput(renderWindow);
+    //windowToColorImageFilter->SetMagnification(1); // Optional, set to >1 for higher resolution
+    windowToColorImageFilter->SetInputBufferTypeToRGB(); // Capture only RGB, not alpha
+    windowToColorImageFilter->Update();
+
+    auto imageData = windowToColorImageFilter->GetOutput();
+
+    auto colorArray = vtkUnsignedCharArray::SafeDownCast(imageData->GetPointData()->GetScalars());
+  
+    vtkNew<vtkPoints> points;
+
+    Eigen::Matrix4f viewMatrix = vtkToEigen(renderer->GetActiveCamera()->GetViewTransformMatrix());
+    Eigen::Matrix4f tm = viewMatrix.inverse();
+    //auto& tm = cameraTransforms[0];
+
+    vtkSmartPointer<vtkWindowToImageFilter> windowToDepthImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
+    windowToDepthImageFilter->SetInput(GetRenderWindow());
+    windowToDepthImageFilter->SetInputBufferTypeToZBuffer(); // Get the depth buffer
+    windowToDepthImageFilter->Update();
+
+    vtkSmartPointer<vtkImageData> depthImage = windowToDepthImageFilter->GetOutput();
+
+    vtkSmartPointer<vtkFloatArray> depthArray = vtkFloatArray::SafeDownCast(depthImage->GetPointData()->GetScalars());
+
+    double* clippingRange = renderer->GetActiveCamera()->GetClippingRange();
+    float depthRatio = (float)(clippingRange[1] - clippingRange[0]);
+
+    vector<float3> inputPoints;
+
+    vtkIdType index = 0;
+    for (float y = -24.0f; y < 24.0f; y += 0.1f)
+    {
+        for (float x = -12.8f; x < 12.8f; x += 0.1f)
+        {
+            float depth = depthArray->GetValue(index);
+            //if (depth < 1.0f)
+            {
+                auto p = Transform(tm, { x, y, -depth * depthRatio });
+
+                inputPoints.push_back(make_float3(p.x(), p.y(), p.z()));
+
+                points->InsertNextPoint(p.x(), p.y(), p.z());
+
+                unsigned char rgb[3];
+                colorArray->GetTypedTuple(index, rgb);
+
+                colors->InsertNextTuple3(rgb[0], rgb[1], rgb[2]);
+            }
+            index++;
+        }
+    }
+
+
+    {
+        float3* d_points;
+        float3* d_normals;
+        cudaMallocManaged(&d_points, sizeof(float3) * 256 * 480);
+        cudaMallocManaged(&d_normals, sizeof(float3) * 256 * 480);
+
+        cudaDeviceSynchronize();
+
+        cudaMemcpy(d_points, inputPoints.data(), sizeof(float3) * 256 * 480, cudaMemcpyHostToDevice);
+
+        CUDA::GeneratePatchNormals(256, 480, d_points, 256 * 480, d_normals);
+
+        for (size_t i = 0; i < inputPoints.size(); i++)
+        {
+            auto n = d_normals[i];
+            normals->InsertNextTuple3(n.x, n.y, n.z);
+        }
+
+        cudaFree(d_points);
+        cudaFree(d_normals);
+    }
+
+    vtkNew<vtkPolyData> polyData;
+    polyData->SetPoints(points);
+
+    vtkNew<vtkVertexGlyphFilter> vertexFilter;
+    vertexFilter->SetInputData(polyData);
+    vertexFilter->Update();
+    polyData->ShallowCopy(vertexFilter->GetOutput());
+
+    polyData->GetPointData()->SetNormals(normals);
+    polyData->GetPointData()->SetScalars(colors);
+    //polyData->GetPointData()->SetAttribute(colors, vtkDataSetAttributes::SCALARS);
+
+    vtkNew<vtkPLYWriter> plyWriter;
+    plyWriter->SetFileName(pointCloudFileName.c_str());
+    plyWriter->SetInputData(polyData);
+    plyWriter->SetFileTypeToASCII();
+    plyWriter->SetColorModeToDefault();
+    plyWriter->SetArrayName("Normals");
+    plyWriter->SetArrayName("Colors");
+    //plyWriter->Update();
+    plyWriter->Write();
 }

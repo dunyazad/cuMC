@@ -69,6 +69,7 @@ public:
     void OnPostRender();
 
     void CaptureColorAndDepth(const string& saveDirectory);
+    void CaptureAsPointCloud(const string& saveDirectory);
 
     static void OnKeyPress();
 

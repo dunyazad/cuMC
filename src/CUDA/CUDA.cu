@@ -226,4 +226,179 @@ namespace CUDA
 		cudaMemcpy(h_voxels, cache, sizeof(Voxel) * cacheSize.x * cacheSize.y * cacheSize.z, cudaMemcpyDeviceToHost);
 		cudaDeviceSynchronize();
 	}
+
+	// Helper device function to add two float3 vectors
+	__device__ float3 operator+(const float3& a, const float3& b) {
+		return { a.x + b.x, a.y + b.y, a.z + b.z };
+	}
+
+	// Helper device function to add two float3 vectors
+	__device__ float3 operator+=(float3& a, float3& b) {
+		a.x += b.x;
+		a.y += b.y;
+		a.z += b.z;
+		return { a.x + b.x, a.y + b.y, a.z + b.z };
+	}
+
+	// Helper device function to divide a float3 vector by a scalar
+	__device__ float3 operator/(const float3& a, float b) {
+		return { a.x / b, a.y / b, a.z / b };
+	}
+
+	// Helper device function to divide a float3 vector by a scalar
+	__device__ float3 operator/=(float3& a, float b) {
+		a.x /= b;
+		a.y /= b;
+		a.z /= b;
+		return { a.x / b, a.y / b, a.z / b };
+	}
+
+	// Helper device function to calculate the cross product of two vectors
+	__device__ float3 crossProduct(const float3& a, const float3& b) {
+		return { a.y * b.z - a.z * b.y,
+				a.z * b.x - a.x * b.z,
+				a.x * b.y - a.y * b.x };
+	}
+
+	// Helper device function to normalize a float3 vector
+	__device__ float3 normalize(const float3& v) {
+		float len = sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+		return len > 0 ? float3{ v.x / len, v.y / len, v.z / len } : float3{ 0, 0, 1 };
+	}
+
+	__device__ float3 getNormalFromCovariance(const float* covarianceMatrix) {
+		// Extract elements of the 3x3 covariance matrix
+		float Cxx = covarianceMatrix[0];
+		float Cxy = covarianceMatrix[1];
+		float Cxz = covarianceMatrix[2];
+		float Cyy = covarianceMatrix[4];
+		float Cyz = covarianceMatrix[5];
+		float Czz = covarianceMatrix[8];
+
+		// To approximate the smallest eigenvector, use a simple heuristic:
+		// We calculate two vectors that roughly align with the largest two eigenvectors
+		// and take the cross product to approximate the smallest eigenvector.
+		float3 v1 = { Cxx, Cxy, Cxz };
+		float3 v2 = { Cxy, Cyy, Cyz };
+
+		// The normal vector is the cross product of v1 and v2
+		float3 normal = crossProduct(v1, v2);
+
+		// Normalize the resulting vector
+		return normalize(normal);
+	}
+
+	__global__ void Kernel_GeneratePatchNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals)
+	{
+		uint32_t threadid = blockDim.x * blockIdx.x + threadIdx.x;
+		if (threadid > width * height - 1) return;
+
+		int xIndex = threadid % width;
+		int yIndex = threadid / width;
+
+		auto currentPoint = points[threadid];
+
+		uint32_t found = 0;
+		float3 mean = { 0.0f, 0.0f, 0.0f };
+
+		int offset = 10;
+		int currentOffset = 0;
+		while (currentOffset <= offset)
+		{
+			for (int y = yIndex - currentOffset; y <= yIndex + currentOffset; y++)
+			{
+				if (y < 0 || y > height) continue;
+
+				for (int x = xIndex - currentOffset; x <= xIndex + currentOffset; x++)
+				{
+					if (x < 0 || x > width) continue;
+					
+					if ((x == -currentOffset || x == currentOffset) ||
+						(y == -currentOffset || y == currentOffset))
+					{
+						auto npoint = points[y * width + x];
+
+						auto distance = norm3d(
+							npoint.x - currentPoint.x,
+							npoint.y - currentPoint.y,
+							npoint.z - currentPoint.z);
+
+						if (distance <= 1.0f)
+						{
+							mean += npoint;
+							found++;
+						}
+					}
+				}
+			}
+			currentOffset++;
+		}
+
+		mean /= (float)found;
+
+		currentOffset = 0;
+
+		float covarianceMatrix[9];
+		float Cxx = 0, Cxy = 0, Cxz = 0, Cyy = 0, Cyz = 0, Czz = 0;
+		while (currentOffset <= offset)
+		{
+			for (int y = yIndex - currentOffset; y <= yIndex + currentOffset; y++)
+			{
+				if (y < 0 || y > height) continue;
+
+				for (int x = xIndex - currentOffset; x <= xIndex + currentOffset; x++)
+				{
+					if (x < 0 || x > width) continue;
+
+					if ((x == -currentOffset || x == currentOffset) ||
+						(y == -currentOffset || y == currentOffset))
+					{
+						auto npoint = points[y * width + x];
+						auto distance = norm3d(
+							npoint.x - currentPoint.x,
+							npoint.y - currentPoint.y,
+							npoint.z - currentPoint.z);
+
+						if (distance <= 1.0f)
+						{
+							mean += npoint;
+
+							Cxx += npoint.x * npoint.x;
+							Cxy += npoint.x * npoint.y;
+							Cxz += npoint.x * npoint.z;
+							Cyy += npoint.y * npoint.y;
+							Cyz += npoint.y * npoint.z;
+							Czz += npoint.z * npoint.z;
+						}
+					}
+				}
+			}
+			currentOffset++;
+		}
+
+		covarianceMatrix[0] = Cxx / (float)found;
+		covarianceMatrix[1] = Cxy / (float)found;
+		covarianceMatrix[2] = Cxz / (float)found;
+		covarianceMatrix[3] = Cxy / (float)found;
+		covarianceMatrix[4] = Cyy / (float)found;
+		covarianceMatrix[5] = Cyz / (float)found;
+		covarianceMatrix[6] = Cxz / (float)found;
+		covarianceMatrix[7] = Cyz / (float)found;
+		covarianceMatrix[8] = Czz / (float)found;
+
+		auto normal = getNormalFromCovariance(covarianceMatrix);
+		normals[threadid] = normal;
+	}
+
+	void GeneratePatchNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals)
+	{
+		int mingridsize;
+		int threadblocksize;
+		checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_GeneratePatchNormals, 0, 0));
+		auto gridsize = (numberOfPoints - 1) / threadblocksize;
+
+		Kernel_GeneratePatchNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+	}
 }

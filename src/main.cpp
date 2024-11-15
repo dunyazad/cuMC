@@ -350,7 +350,8 @@ void CaptureNextFrame(App* pApp)
 
 	MoveCamera(pApp, camera, tm);
 
-	pApp->CaptureColorAndDepth("C:\\Resources\\2D\\Captured\\RGBD");
+	//pApp->CaptureColorAndDepth("C:\\Resources\\2D\\Captured\\RGBD");
+	pApp->CaptureAsPointCloud("C:\\Resources\\2D\\Captured\\PointCloud");
 	printf("Saved %d\n", transformIndex);
 
 	transformIndex++;
@@ -405,6 +406,44 @@ int main()
 	app.AddAppStartCallback([&](App* pApp) {
 		auto renderer = pApp->GetRenderer();
 
+		//{
+		//	vtkNew<vtkPLYReader> reader;
+		//	reader->SetFileName("C:\\Resources\\2D\\Captured\\PointCloud\\point_0.ply");
+		//	reader->Update();
+
+		//	vtkSmartPointer<vtkPolyData> polyData = reader->GetOutput();
+
+		//	vector<Eigen::Vector3f> points;
+		//	auto plyPoints = polyData->GetPoints();
+		//	for (size_t i = 0; i < plyPoints->GetNumberOfPoints(); i++)
+		//	{
+		//		auto dp = plyPoints->GetPoint(i);
+		//		auto p = Eigen::Vector3f(dp[0], dp[1], dp[2]);
+		//		points.push_back(p);
+		//		VD::AddSphere("points", p, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 1.0f }, Color4::White);
+		//	}
+
+		//	{
+		//		float3* d_points;
+		//		float3* d_normals;
+		//		cudaMallocManaged(&d_points, sizeof(float3) * points.size());
+		//		cudaMallocManaged(&d_normals, sizeof(float3) * points.size());
+
+		//		cudaDeviceSynchronize();
+
+		//		cudaMemcpy(d_points, points.data(), sizeof(float3) * points.size(), cudaMemcpyHostToDevice);
+
+		//		CUDA::GeneratePatchNormals(256, 480, d_points, points.size(), d_normals);
+
+		//		for (size_t i = 0; i < points.size(); i++)
+		//		{
+		//			auto n = d_normals[i];
+		//			VD::AddLine("normals", points[i], points[i] + Eigen::Vector3f(n.x, n.y, n.z), Color4::Red);
+		//		}
+		//	}
+		//	return;
+		//}
+
 		LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
 
 		auto camera = renderer->GetActiveCamera();
@@ -415,114 +454,11 @@ int main()
 		// 480 * 0.1 / 2 = 24
 		camera->SetParallelScale(24);
 
-		LoadPatch(0, renderer);
-
 		//SaveTRNFile();
 
 		LoadTRNFile();
 
 		//LoadDepthImage();
-
-		MoveCamera(pApp, camera, cameraTransforms[0]);
-
-		{
-			auto& tm = cameraTransforms[0];
-
-#pragma region Drawing ViewPort
-			/*
-			Eigen::Vector3f cd = -tm.block<3, 1>(0, 2);
-
-			//float ratio = 0.05f;
-			float ratio = 0.1f;
-
-			Eigen::Vector3f topLeft = (tm * Eigen::Vector4f(-128.0f * ratio, 240.0f * ratio, 20.0f, 1.0f)).head<3>();
-			Eigen::Vector3f topRight = (tm * Eigen::Vector4f(128.0f * ratio, 240.0f * ratio, 20.0f, 1.0f)).head<3>();
-			Eigen::Vector3f bottomLeft = (tm * Eigen::Vector4f(-128.0f * ratio, -240.0f * ratio, 20.0f, 1.0f)).head<3>();
-			Eigen::Vector3f bottomRight = (tm * Eigen::Vector4f(128.0f * ratio, -240.0f * ratio, 20.0f, 1.0f)).head<3>();
-
-			Eigen::Vector3f ttl = topLeft + cd * 20.0f;
-			Eigen::Vector3f ttr = topRight + cd * 20.0f;
-			Eigen::Vector3f tbl = bottomLeft + cd * 20.0f;
-			Eigen::Vector3f tbr = bottomRight + cd * 20.0f;
-
-			VD::AddLine("rays", topLeft, ttl, Color4::Red);
-			VD::AddLine("rays", topRight, ttr, Color4::Red);
-			VD::AddLine("rays", bottomLeft, tbl, Color4::Red);
-			VD::AddLine("rays", bottomRight, tbr, Color4::Red);
-
-			VD::AddLine("rays", ttl, ttr, Color4::Red);
-			VD::AddLine("rays", tbl, tbr, Color4::Red);
-			VD::AddLine("rays", ttl, tbl, Color4::Red);
-			VD::AddLine("rays", ttr, tbr, Color4::Red);
-			*/
-#pragma endregion
-
-
-			//for (float y = -24.0f; y < 24.0f; y += 0.1f)
-			//{
-			//	for (float x = -12.8f; x < 12.8f; x += 0.1f)
-			//	{
-			//		auto ps = Transform(tm, { x, y, 0.0f });
-			//		auto pe = Transform(tm, { x, y, 20.0f });
-
-			//		//VD::AddLine("rays", ps, pe, Color4::Red);
-			//		VD::AddSphere("rayorigin", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
-			//	}
-			//}
-		}
-
-
-		{
-			Eigen::Matrix4f viewMatrix = vtkToEigen(camera->GetViewTransformMatrix());
-			Eigen::Matrix4f tm = viewMatrix.inverse();
-			//auto& tm = cameraTransforms[0];
-
-			vtkSmartPointer<vtkWindowToImageFilter> windowToImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
-			windowToImageFilter->SetInput(pApp->GetRenderWindow());
-			windowToImageFilter->SetInputBufferTypeToZBuffer(); // Get the depth buffer
-			windowToImageFilter->Update();
-
-			// Access the depth buffer as an image
-			vtkSmartPointer<vtkImageData> depthImage = windowToImageFilter->GetOutput();
-
-			// Get the depth values as a float array
-			vtkSmartPointer<vtkFloatArray> depthArray = vtkFloatArray::SafeDownCast(depthImage->GetPointData()->GetScalars());
-
-			double* clippingRange = camera->GetClippingRange();
-			float depthRatio = (float)(clippingRange[1] - clippingRange[0]);
-
-			if (depthArray) {
-				vtkIdType index = 0;
-				for (float y = -24.0f; y < 24.0f; y += 0.1f)
-				{
-					for (float x = -12.8f; x < 12.8f; x += 0.1f)
-					{
-						float depth = depthArray->GetValue(index++);
-
-						//auto ps = Transform(tm, { x, y, -depth * depthRatio + 20.0f });
-						auto ps = Transform(tm, { x, y, -depth * depthRatio});
-						auto pe = Transform(tm, { x, y, 20.0f });
-
-						//VD::AddLine("rays", ps, pe, Color4::Red);
-						VD::AddSphere("Surface", ps, { 0.1f, 0.1f, 0.1f }, {0.0f, 0.0f, 1.0f}, Color4::Red);
-					}
-				}
-
-				//// Iterate over the depth values (if needed)
-				//for (vtkIdType i = 0; i < depthArray->GetNumberOfTuples(); i++) {
-				//	float depth = depthArray->GetValue(i);
-				//	// Use depth as needed (for example, printing)
-				//	//std::cout << "Depth at point " << i << ": " << depth << std::endl;
-
-				//	float x = (float)(i % 256) * 0.1f;
-				//	float y = (float)(i / 256) * 0.1f;
-
-				//	Eigen::Vector3f p = (tm * Eigen::Vector4f(x, y, -depth, 1.0f)).head<3>();
-
-				//	VD::AddSphere("points", p, { 0.05f, 0.05f , 0.05f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
-				//}
-			}
-		}
 
 		//VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
 		//VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
@@ -534,7 +470,7 @@ int main()
 	app.AddAppUpdateCallback([&](App* pApp) {
 		if (enabledToCapture)
 		{
-			//CaptureNextFrame(pApp);
+			CaptureNextFrame(pApp);
 		}
 	});
 

@@ -40,4 +40,5 @@ namespace CUDA
 		Voxel* cache = nullptr;
 	};
 
+	void GeneratePatchNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals);
 }
