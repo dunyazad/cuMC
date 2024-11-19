@@ -37,13 +37,30 @@ private:
     void OnPostRender();
 };
 
+struct AppConfiguration
+{
+    int windowWidth = 1920;
+    int windowHeight = 1080;
+    bool maximizeRenderWindow = true;
+    bool maximizeConsoleWindow = true;
+
+    AppConfiguration()
+    {
+        windowWidth = 1920;
+        windowHeight = 1080;
+        maximizeRenderWindow = true;
+        maximizeConsoleWindow = true;
+    }
+};
+
 class App
 {
 public:
 	App();
 	~App();
 
-	void Run(int windowWidth = 1920, int windowHeight = 1080, bool maximizeRenderWindow = true, bool maximizeConsoleWindow = true);
+    void Run();
+	void Run(AppConfiguration configuration);
 
     void AddAppStartCallback(function<void(App*)> f);
     void AddAppStartCallback(const string& name, function<void(App*)> f);
@@ -77,8 +94,11 @@ public:
     inline vtkSmartPointer<vtkRenderWindow> GetRenderWindow() const { return renderWindow; }
     inline vtkSmartPointer<vtkRenderWindowInteractor> GetInteractor() const { return interactor; }
 
+    inline AppConfiguration& Configuration() { return configuration; }
+
 private:
     static set<App*> s_instances;
+    AppConfiguration configuration;
     vtkSmartPointer<vtkRenderer> renderer;
     vtkSmartPointer<vtkRenderWindow> renderWindow;
     vtkSmartPointer<vtkRenderWindowInteractor> interactor;
@@ -93,4 +113,6 @@ private:
     map<string, function<void(App*)>> appUpdateCallbacks;
     map<string, function<void(App*)>> appPostRenderCallbacks;
     map<string, function<void(App*)>> keyPressCallbacks;
+
+    bool captureEnabled = false;
 };

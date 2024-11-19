@@ -41,6 +41,7 @@ set(cuda_source_list
 # List of C++ source files
 set(source_list
     src/main.cpp
+    src/AppStartCallback.cpp
     src/Common.h
     src/Common.cpp
     src/Max.h

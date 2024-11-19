@@ -17,7 +17,7 @@ namespace Time
 
     uint64_t Microseconds(chrono::steady_clock::time_point& from, chrono::steady_clock::time_point& now);
 
-    chrono::steady_clock::time_point End(chrono::steady_clock::time_point& from, const string& message = "");
+    chrono::steady_clock::time_point End(chrono::steady_clock::time_point& from, const string& message = "", int number = -1);
 
     string DateTime();
 }

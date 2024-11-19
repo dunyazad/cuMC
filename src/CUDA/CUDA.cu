@@ -301,6 +301,7 @@ namespace CUDA
 		uint32_t found = 0;
 		float3 mean = { 0.0f, 0.0f, 0.0f };
 
+		float voxelSize = 0.1f;
 		int offset = 5;
 		int currentOffset = 0;
 		while (currentOffset <= offset)
@@ -323,7 +324,7 @@ namespace CUDA
 							npoint.y - currentPoint.y,
 							npoint.z - currentPoint.z);
 
-						if (distance <= 0.5f)
+						if (distance <= (float)offset * voxelSize)
 						{
 							mean += npoint;
 							found++;
@@ -359,10 +360,8 @@ namespace CUDA
 							npoint.y - currentPoint.y,
 							npoint.z - currentPoint.z);
 
-						if (distance <= 0.5f)
+						if (distance <= (float)offset * voxelSize)
 						{
-							//mean += npoint;
-
 							Cxx += npoint.x * npoint.x;
 							Cxy += npoint.x * npoint.y;
 							Cxz += npoint.x * npoint.z;
@@ -459,19 +458,19 @@ namespace CUDA
 			nvtxRangePop();
 		}
 
-		{
-			nvtxRangePushA("EverageNormals");
+		//{
+		//	nvtxRangePushA("EverageNormals");
 
-			int mingridsize;
-			int threadblocksize;
-			checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_EverageNormals, 0, 0));
-			auto gridsize = (numberOfPoints - 1) / threadblocksize;
+		//	int mingridsize;
+		//	int threadblocksize;
+		//	checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_EverageNormals, 0, 0));
+		//	auto gridsize = (numberOfPoints - 1) / threadblocksize;
 
-			Kernel_EverageNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
+		//	Kernel_EverageNormals << <gridsize, threadblocksize >> > (width, height, points, numberOfPoints, normals);
 
-			checkCudaErrors(cudaDeviceSynchronize());
+		//	checkCudaErrors(cudaDeviceSynchronize());
 
-			nvtxRangePop();
-		}
+		//	nvtxRangePop();
+		//}
 	}
 }

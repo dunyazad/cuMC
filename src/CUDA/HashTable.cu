@@ -4,6 +4,33 @@ namespace Algorithm
 {
     namespace HashTable
     {
+        uint64_t encode_key(const Eigen::Vector3f& position, float voxelSize)
+        {
+            int64_t x_voxel = static_cast<int64_t>(std::round(position.x() * 10.0f));
+            int64_t y_voxel = static_cast<int64_t>(std::round(position.y() * 10.0f));
+            int64_t z_voxel = static_cast<int64_t>(std::round(position.z() * 10.0f));
+
+            uint64_t key = 0;
+            key |= ((x_voxel  & 0x1FFFFF) << 42); // 21 bits for x
+            key |= ((y_voxel  & 0x1FFFFF) << 21); // 21 bits for y
+            key |= (z_voxel  & 0x1FFFFF);         // 21 bits for z
+            return key;
+        }
+
+        Eigen::Vector3f decode_key(uint64_t key, float voxelSize)
+        {
+            int64_t x = (key >> 42) & 0x1FFFFF;
+            int64_t y = (key >> 21) & 0x1FFFFF;
+            int64_t z = key & 0x1FFFFF;
+
+            // Adjust for signed values if necessary
+            if (x & (1 << 20)) x -= (1 << 21);
+            if (y & (1 << 20)) y -= (1 << 21);
+            if (z & (1 << 20)) z -= (1 << 21);
+
+            return { x * voxelSize, y * voxelSize, z * voxelSize };
+        }
+
         // 32 bit Murmur3 hash
         __device__ uint32_t hash_32(uint32_t k)
         {

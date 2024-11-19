@@ -22,11 +22,14 @@ namespace Algorithm
             uint64_t value;
         };
 
-        const uint64_t kHashTableCapacity = 128 * 1024 * 1024;
+        const uint64_t kHashTableCapacity = 5000 * 5000 * 5000;
 
         const uint64_t kNumKeyValues = kHashTableCapacity / 2;
 
         const uint64_t kEmpty = 0xffffffff;
+
+        uint64_t encode_key(const Eigen::Vector3f& position, float voxelSize = 0.1f);
+        Eigen::Vector3f decode_key(uint64_t key, float voxelSize = 0.1f);
 
         KeyValue* create_hashtable();
 

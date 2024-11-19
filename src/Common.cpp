@@ -12,10 +12,17 @@ namespace Time
 		return std::chrono::duration_cast<std::chrono::microseconds>(now - from).count();
 	}
 
-	chrono::steady_clock::time_point End(chrono::steady_clock::time_point& from, const string& message)
+	chrono::steady_clock::time_point End(chrono::steady_clock::time_point& from, const string& message, int number)
 	{
 		auto now = chrono::high_resolution_clock::now();
-		printf("[%s] %.4f ms from start\n", message.c_str(), (float)(Microseconds(from, now)) / 1000.0f);
+		if (-1 == number)
+		{
+			printf("[%s] %.4f ms from start\n", message.c_str(), (float)(Microseconds(from, now)) / 1000.0f);
+		}
+		else
+		{
+			printf("[%6d - %s] %.4f ms from start\n", number, message.c_str(), (float)(Microseconds(from, now)) / 1000.0f);
+		}
 		return now;
 	}
 

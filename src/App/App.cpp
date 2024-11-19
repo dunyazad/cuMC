@@ -57,9 +57,9 @@ App::~App()
     s_instances.erase(this);
 }
 
-void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool maximizeConsoleWindow)
+void App::Run()
 {
-    if (maximizeConsoleWindow)
+    if (configuration.maximizeConsoleWindow)
     {
         MaximizeConsoleWindowOnMonitor(1);
     }
@@ -70,7 +70,7 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
     renderer->GetActiveCamera()->SetClippingRange(0.001, 40.0);
 
     renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
-    renderWindow->SetSize(windowWidth, windowHeight);
+    renderWindow->SetSize(configuration.windowWidth, configuration.windowHeight);
     renderWindow->AddRenderer(renderer);
 
     interactor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
@@ -81,7 +81,7 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
 
     VisualDebugging::Initialize(renderer);
 
-    if (maximizeRenderWindow)
+    if (configuration.maximizeRenderWindow)
     {
         MaximizeVTKWindowOnMonitor(renderWindow, 2);
     }
@@ -99,7 +99,7 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
     postRenderCallback->SetApp(this);
 
     renderWindow->AddObserver(vtkCommand::EndEvent, postRenderCallback);
-    
+
     for (auto& kvp : appStartCallbacks)
     {
         kvp.second(this);
@@ -109,6 +109,16 @@ void App::Run(int windowWidth, int windowHeight, bool maximizeRenderWindow, bool
     interactor->Start();
 
     VisualDebugging::Terminate();
+}
+
+void App::Run(AppConfiguration configuration)
+{
+    this->configuration.windowWidth = configuration.windowWidth;
+    this->configuration.windowHeight = configuration.windowHeight;
+    this->configuration.maximizeRenderWindow = configuration.maximizeRenderWindow;
+    this->configuration.maximizeConsoleWindow = configuration.maximizeConsoleWindow;
+
+    Run();
 }
 
 void App::AddAppStartCallback(function<void(App*)> f)
@@ -358,7 +368,6 @@ void App::CaptureAsPointCloud(const string& saveDirectory)
 
     Eigen::Matrix4f viewMatrix = vtkToEigen(renderer->GetActiveCamera()->GetViewTransformMatrix());
     Eigen::Matrix4f tm = viewMatrix.inverse();
-    //auto& tm = cameraTransforms[0];
 
     vtkSmartPointer<vtkWindowToImageFilter> windowToDepthImageFilter = vtkSmartPointer<vtkWindowToImageFilter>::New();
     windowToDepthImageFilter->SetInput(GetRenderWindow());
@@ -380,10 +389,11 @@ void App::CaptureAsPointCloud(const string& saveDirectory)
         for (float x = -12.8f; x < 12.8f; x += 0.1f)
         {
             float depth = depthArray->GetValue(index);
-            //if (depth < 1.0f)
+            if (depth < 1.0f)
             {
                 auto p = Transform(tm, { x, y, -depth * depthRatio });
-
+                //auto p = Eigen::Vector3f(x, y, -depth * depthRatio);
+                
                 inputPoints.push_back(make_float3(p.x(), p.y(), p.z()));
 
                 points->InsertNextPoint(p.x(), p.y(), p.z());
@@ -392,6 +402,13 @@ void App::CaptureAsPointCloud(const string& saveDirectory)
                 colorArray->GetTypedTuple(index, rgb);
 
                 colors->InsertNextTuple3(rgb[0], rgb[1], rgb[2]);
+            }
+            else
+            {
+                auto p = Transform(tm, { x, y, -depth * depthRatio });
+                //auto p = Eigen::Vector3f(x, y, -depth * depthRatio);
+
+                inputPoints.push_back(make_float3(p.x(), p.y(), p.z()));
             }
             index++;
         }
@@ -412,8 +429,12 @@ void App::CaptureAsPointCloud(const string& saveDirectory)
 
         for (size_t i = 0; i < inputPoints.size(); i++)
         {
-            auto n = d_normals[i];
-            normals->InsertNextTuple3(n.x, n.y, n.z);
+            float depth = depthArray->GetValue(i);
+            if (depth < 1.0f)
+            {
+                auto n = d_normals[i];
+                normals->InsertNextTuple3(n.x, n.y, n.z);
+            }
         }
 
         cudaFree(d_points);
