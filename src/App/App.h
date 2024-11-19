@@ -51,6 +51,18 @@ struct AppConfiguration
         maximizeRenderWindow = true;
         maximizeConsoleWindow = true;
     }
+
+    AppConfiguration(
+        int windowWidth,
+        int windowHeight,
+        bool maximizeRenderWindow,
+        bool maximizeConsoleWindow)
+        : windowWidth(windowWidth),
+        windowHeight(windowHeight),
+        maximizeRenderWindow(maximizeRenderWindow),
+        maximizeConsoleWindow(maximizeConsoleWindow)
+    {
+    }
 };
 
 class App
@@ -94,7 +106,7 @@ public:
     inline vtkSmartPointer<vtkRenderWindow> GetRenderWindow() const { return renderWindow; }
     inline vtkSmartPointer<vtkRenderWindowInteractor> GetInteractor() const { return interactor; }
 
-    inline AppConfiguration& Configuration() { return configuration; }
+    inline AppConfiguration* Configuration() { return &configuration; }
 
 private:
     static set<App*> s_instances;

@@ -473,4 +473,60 @@ namespace CUDA
 		//	nvtxRangePop();
 		//}
 	}
+
+	__global__ void Kernel_IntegrateInputPoints(
+		Voxel* volume,
+		int3 volumeDimension,
+		float voxelSize,
+		Eigen::Vector3f* inputPoints,
+		size_t numberOfInputPoints)
+	{
+		uint32_t threadid = blockDim.x * blockIdx.x + threadIdx.x;
+		if (threadid > numberOfInputPoints - 1) return;
+
+		auto p = inputPoints[threadid];
+
+		int xKey = (int)floorf(p.x() / voxelSize);
+		int yKey = (int)floorf(p.y() / voxelSize);
+		int zKey = (int)floorf(p.z() / voxelSize);
+
+		if (xKey < 0 || xKey >= volumeDimension.x) return;
+		if (yKey < 0 || yKey >= volumeDimension.y) return;
+		if (zKey < 0 || zKey >= volumeDimension.z) return;
+
+		volume[zKey * volumeDimension.x * volumeDimension.y + yKey * volumeDimension.x + xKey].tsdfValue = 1.0f;
+
+		int offset = 5;
+
+		for (int z = zKey - offset; z <= zKey + offset; z++)
+		{
+			if (zKey < 0 || zKey >= volumeDimension.z) return;
+			for (int y = yKey - offset; y <= yKey + offset; y++)
+			{
+				if (yKey < 0 || yKey >= volumeDimension.y) return;
+				for (int x = xKey - offset; x <= xKey + offset; x++)
+				{
+					if (xKey < 0 || xKey >= volumeDimension.x) return;
+
+					volume[z * volumeDimension.x * volumeDimension.y + y * volumeDimension.x + x].tsdfValue = 1.0f;
+				}
+			}
+		}
+	}
+
+	void IntegrateInputPoints(Voxel* volume, int3 volumeDimension, float voxelSize, Eigen::Vector3f* inputPoints, size_t numberOfInputPoints)
+	{
+		nvtxRangePushA("IntegrateInputPoints");
+
+		int mingridsize;
+		int threadblocksize;
+		checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&mingridsize, &threadblocksize, Kernel_IntegrateInputPoints, 0, 0));
+		auto gridsize = (numberOfInputPoints - 1) / threadblocksize;
+
+		Kernel_IntegrateInputPoints << <gridsize, threadblocksize >> > (volume, volumeDimension, voxelSize, inputPoints, numberOfInputPoints);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+
+		nvtxRangePop();
+	}
 }

@@ -424,6 +424,16 @@ void VisualDebugging::AddSphere(const string& layerName, const Eigen::Vector3f& 
 	s_needToRender = true;
 }
 
+void VisualDebugging::AddCube(const string& layerName, const Eigen::Vector3f& center, const Color4& color)
+{
+	AddCube(layerName, center, { 1.0f, 1.0f, 1.0f }, { 0.0f, 0.0f, 0.0f }, color);
+}
+
+void VisualDebugging::AddCube(const string& layerName, const Eigen::Vector3f& center, float scale, const Color4& color)
+{
+	AddCube(layerName, center, { scale, scale, scale }, { 0.0f, 0.0f, 0.0f }, color);
+}
+
 void VisualDebugging::AddCube(const string& layerName, const Eigen::Vector3f& center, const Eigen::Vector3f& scale, const Eigen::Vector3f& normal, const Color4& color)
 {
 	auto layer = GetLayer(layerName);

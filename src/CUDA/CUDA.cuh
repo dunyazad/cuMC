@@ -41,4 +41,6 @@ namespace CUDA
 	};
 
 	void GeneratePatchNormals(int width, int height, float3* points, size_t numberOfPoints, float3* normals);
+
+	void IntegrateInputPoints(Voxel* volume, int3 volumeDimension, float voxelSize, Eigen::Vector3f* inputPoints, size_t numberOfInputPoints);
 }
