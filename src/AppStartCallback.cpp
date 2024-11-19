@@ -875,9 +875,16 @@ void AppStartCallback_Integrate(App* pApp)
 	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
 }
 
+void AppStartCallback_Simple(App* pApp)
+{
+	auto renderer = pApp->GetRenderer();
+	LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+}
+
 void AppStartCallback(App* pApp)
 {
 	//AppStartCallback_Integrate(pApp);
 	//AppStartCallback_Convert(pApp);
-	AppStartCallback_LoadPNT(pApp);
+	//AppStartCallback_LoadPNT(pApp);
+	AppStartCallback_Simple(pApp);
 }

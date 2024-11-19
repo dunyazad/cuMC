@@ -450,58 +450,6 @@ void OnKeyPress(App* app)
 		glyph3DMapper->SetScaleArray("Scales");
 		glyph3DMapper->Update();
 	}
-	else if (key == "Return")
-	{
-		// Grab the depth buffer (z-values)
-		int width = renderWindow->GetSize()[0];
-		int height = renderWindow->GetSize()[1];
-		vtkSmartPointer<vtkFloatArray> depthBuffer = vtkSmartPointer<vtkFloatArray>::New();
-		depthBuffer->SetNumberOfComponents(1);
-		depthBuffer->SetNumberOfTuples(width * height);
-
-		renderWindow->GetZbufferData(0, 0, width - 1, height - 1, depthBuffer);
-
-		// Save depth map to an image
-		float minDepth = std::numeric_limits<float>::max();
-		float maxDepth = std::numeric_limits<float>::lowest();
-
-		for (vtkIdType i = 0; i < depthBuffer->GetNumberOfTuples(); i++) {
-			float depthValue = depthBuffer->GetValue(i);
-			minDepth = std::min(minDepth, depthValue);
-			maxDepth = std::max(maxDepth, depthValue);
-		}
-
-		vtkSmartPointer<vtkImageData> depthImage = vtkSmartPointer<vtkImageData>::New();
-		depthImage->SetDimensions(width, height, 1);
-		depthImage->AllocateScalars(VTK_FLOAT, 1);
-
-		for (int y = 0; y < height; ++y)
-		{
-			for (int x = 0; x < width; ++x)
-			{
-				float depthValue = depthBuffer->GetValue((height - y - 1) * width + x);
-				float normalizedDepth = (depthValue - minDepth) / (maxDepth - minDepth);
-
-				depthImage->SetScalarComponentFromFloat(x, y, 0, 0, normalizedDepth * 255);
-
-				if (0.0f != normalizedDepth)
-				{
-					VisualDebugging::AddSphere("Depth", { (float)x / (float)width * 100.0f, (float)y / (float)height * 100.0f, normalizedDepth * 100.0f }, { 0.1f, 0.1f, 0.1f }, { 0.0f, 0.0f, 0.0f }, Color4::White);
-				}
-			}
-		}
-
-		// Optional: Cast the float image to unsigned char to save as PNG
-		vtkSmartPointer<vtkImageCast> castFilter = vtkSmartPointer<vtkImageCast>::New();
-		castFilter->SetInputData(depthImage);
-		castFilter->SetOutputScalarTypeToUnsignedChar();
-		castFilter->Update();
-
-		vtkSmartPointer<vtkPNGWriter> writer = vtkSmartPointer<vtkPNGWriter>::New();
-		writer->SetFileName("c:\\Debug\\2D\\depthmap.png");
-		writer->SetInputData(castFilter->GetOutput());
-		writer->Write();
-	}
 	else if (key == "1")
 	{
 		VisualDebugging::ToggleVisibility("Original");
@@ -612,5 +560,16 @@ void OnKeyPress(App* app)
 	{
 		printf("Camera Distance : %f\n", camera->GetDistance());
 		printf("Camera Parallel Scale : %f\n", camera->GetParallelScale());
+	}
+	else if (key == "Return")
+	{
+		auto viewMatrix = vtkToEigen(camera->GetViewTransformMatrix());
+		Eigen::Matrix4f inverseViewMatrix = viewMatrix.inverse();
+
+		Eigen::Vector3f viewDirection = -inverseViewMatrix.block<3, 1>(0, 2);
+		viewDirection.normalize();
+		Eigen::Vector3f cameraPosition = inverseViewMatrix.block<3, 1>(0, 3);
+
+		VisualDebugging::AddLine("ViewDirection", cameraPosition, cameraPosition + viewDirection * 1000, Color4::Red);
 	}
 }
