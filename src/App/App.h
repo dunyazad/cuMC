@@ -126,7 +126,7 @@ public:
 
     inline AppConfiguration* Configuration() { return &configuration; }
 
-    map<string, void*> temp;
+    map<string, void*> registry;
 private:
     static set<App*> s_instances;
     AppConfiguration configuration;
