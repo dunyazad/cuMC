@@ -2,6 +2,9 @@
 #include <App/App.h>
 #include <App/AppEventHandlers.h>
 
+#include <Debugging/VisualDebugging.h>
+using VD = VisualDebugging;
+
 void AppStartCallback(App* pApp);
 
 int mode = 0;
@@ -14,6 +17,7 @@ int main()
 	app.AddKeyPressCallback(OnKeyPress);
 	app.AddMouseButtonPressCallback(OnMouseButtonPress);
 	app.AddMouseButtonReleaseCallback(OnMouseButtonRelease);
+	app.AddMouseMoveReleaseCallback(OnMouseMove);
 	app.AddAppStartCallback(AppStartCallback);
 
 	if (mode == 0)

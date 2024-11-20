@@ -2,6 +2,84 @@
 
 namespace Algorithm
 {
+	//float RayPointDistanceSquared(const Ray& ray, const float* point)
+	//{
+	//	// Ray equation: P(t) = origin + t * direction
+	//	// Closest point: (point - origin) dot direction
+	//	float diff[3] = {
+	//		point[0] - ray.origin[0],
+	//		point[1] - ray.origin[1],
+	//		point[2] - ray.origin[2]
+	//	};
+
+	//	// Project onto ray direction
+	//	float t = diff[0] * ray.direction[0] + diff[1] * ray.direction[1] + diff[2] * ray.direction[2];
+
+	//	t = std::max(0.0f, t); // Clamp t >= 0
+
+	//	// Closest point on the ray
+	//	float closestPoint[3] = {
+	//		ray.origin[0] + t * ray.direction[0],
+	//		ray.origin[1] + t * ray.direction[1],
+	//		ray.origin[2] + t * ray.direction[2]
+	//	};
+
+	//	// Distance from closest point to the input point
+	//	float dx = closestPoint[0] - point[0];
+	//	float dy = closestPoint[1] - point[1];
+	//	float dz = closestPoint[2] - point[2];
+
+	//	return dx * dx + dy * dy + dz * dz; // Squared distance
+	//}
+
+	//float RayPointDistanceSquared(const Ray& ray, const float* point) {
+	//	float v[3] = {
+	//		point[0] - ray.origin[0],
+	//		point[1] - ray.origin[1],
+	//		point[2] - ray.origin[2]
+	//	};
+
+	//	float t = v[0] * ray.direction[0] + v[1] * ray.direction[1] + v[2] * ray.direction[2];
+
+	//	float proj[3] = {
+	//		ray.origin[0] + t * ray.direction[0],
+	//		ray.origin[1] + t * ray.direction[1],
+	//		ray.origin[2] + t * ray.direction[2]
+	//	};
+
+	//	float dSquared = (proj[0] - point[0]) * (proj[0] - point[0]) +
+	//		(proj[1] - point[1]) * (proj[1] - point[1]) +
+	//		(proj[2] - point[2]) * (proj[2] - point[2]);
+
+	//	return dSquared;
+	//}
+
+	float RayPointDistanceSquared(const Ray& ray, const float* point) {
+		// Calculate vector from ray origin to point
+		float v[3] = {
+			point[0] - ray.origin[0],
+			point[1] - ray.origin[1],
+			point[2] - ray.origin[2]
+		};
+
+		// Project v onto the ray direction
+		float t = v[0] * ray.direction[0] + v[1] * ray.direction[1] + v[2] * ray.direction[2];
+
+		// Find the projection point on the ray
+		float proj[3] = {
+			ray.origin[0] + t * ray.direction[0],
+			ray.origin[1] + t * ray.direction[1],
+			ray.origin[2] + t * ray.direction[2]
+		};
+
+		// Calculate squared distance from the point to the projection point on the ray
+		float dSquared = (proj[0] - point[0]) * (proj[0] - point[0]) +
+			(proj[1] - point[1]) * (proj[1] - point[1]) +
+			(proj[2] - point[2]) * (proj[2] - point[2]);
+
+		return dSquared;
+	}
+
 
 	float GetDistanceSquared(const float* points, unsigned int point_index, const float* query)
 	{

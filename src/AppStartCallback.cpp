@@ -405,6 +405,21 @@ void AppStartCallback_Capture(App* pApp)
 		{
 			CaptureNextFrame(pApp);
 		}
+
+		static size_t index = 0;
+
+		auto kdTreePoints = (vector<Eigen::Vector3f>*)pApp->temp["kdTreePoints"];
+		auto kdTreeColors = (vector<Color4>*)pApp->temp["kdTreeColors"];
+
+		auto& p = (*kdTreePoints)[index];
+		auto& c = (*kdTreeColors)[index];
+
+		VD::AddSphere("points",
+			p,
+			{ 0.05f,0.05f,0.05f },
+			{ 0.0f, 0.0f, 1.0f },
+			c);
+		index++;
 	});
 
 	auto renderer = pApp->GetRenderer();
@@ -813,10 +828,14 @@ void AppStartCallback_Integrate(App* pApp)
 	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
 }
 
-void AppStartCallback_Simple(App* pApp)
+void AppStartCallback_KDTree(App* pApp)
 {
 	auto renderer = pApp->GetRenderer();
 	//LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
 
 	vtkNew<vtkPLYReader> reader;
 	reader->SetFileName("C:\\Resources\\3D\\PLY\\Complete\\Lower_pointcloud.ply");
@@ -828,33 +847,61 @@ void AppStartCallback_Simple(App* pApp)
 	vtkDataArray* plyNormals = polyData->GetPointData()->GetNormals();
 	vtkUnsignedCharArray* plyColors = vtkUnsignedCharArray::SafeDownCast(polyData->GetPointData()->GetScalars());
 
-	vector<Eigen::Vector3f> points;
+	static vector<Eigen::Vector3f> points;
+	static vector<Color4> colors;
+
+	vector<unsigned int> pointIndices;
+
 	for (size_t pi = 0; pi < plyPoints->GetNumberOfPoints(); pi++)
 	{
+		pointIndices.push_back((unsigned int)pi);
+
 		auto dp = plyPoints->GetPoint(pi);
 		auto normal = plyNormals->GetTuple(pi);
 		unsigned char color[3];
 		plyColors->GetTypedTuple(pi, color);
 
 		points.push_back({ (float)dp[0], (float)dp[1], (float)dp[2] });
+		colors.push_back(Color4(color[0], color[1], color[2], 255));
 
-		VD::AddSphere("points",
-			{ (float)dp[0], (float)dp[1], (float)dp[2] },
-			{ 0.2f,0.2f,0.2f },
-			{ 0.0f, 0.0f, 1.0f },
-			Color4(color[0], color[1], color[2], 255));
+		//VD::AddSphere("points",
+		//	{ (float)dp[0], (float)dp[1], (float)dp[2] },
+		//	{ 0.05f,0.05f,0.05f },
+		//	{ 0.0f, 0.0f, 1.0f },
+		//	Color4(color[0], color[1], color[2], 255));
 	}
 
 	auto t = Time::Now();
 
-	Algorithm::KDTree kdtree;
-	kdtree.SetPoints((float*)points.data());
-	for (size_t i = 0; i < plyPoints->GetNumberOfPoints(); i++)
-	{
-		kdtree.Insert(i);
-	}
+	Algorithm::KDTree* kdtree = new Algorithm::KDTree;
+	kdtree->SetPoints((float*)points.data());
+	kdtree->BuildTree(pointIndices);
+
+	//for (size_t i = 0; i < plyPoints->GetNumberOfPoints(); i++)
+	//{
+	//	kdtree->Insert(i);
+	//}
+
+	pApp->temp["kdtree"] = kdtree;
+	pApp->temp["points"] = &points;
 
 	t = Time::End(t, "Building KDTree");
+
+	size_t count = 0;
+	kdtree->TraversePreOrder([&](Algorithm::KDTreeNode* node) {
+		count++;
+		auto i = node->GetPointIndex();
+		auto& p = points[i];
+		auto& c = colors[i];
+
+		VD::AddSphere("points",
+			p,
+			{ 0.05f,0.05f,0.05f },
+			{ 0.0f, 0.0f, 1.0f },
+			c);
+		});
+
+	printf("count : %llu\n", count);
 }
 
 void AppStartCallback(App* pApp)
@@ -862,5 +909,5 @@ void AppStartCallback(App* pApp)
 	//AppStartCallback_Integrate(pApp);
 	//AppStartCallback_Convert(pApp);
 	//AppStartCallback_LoadPNT(pApp);
-	AppStartCallback_Simple(pApp);
+	AppStartCallback_KDTree(pApp);
 }

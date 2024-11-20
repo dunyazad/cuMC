@@ -75,3 +75,12 @@ void CustomTrackballStyle::OnKeyPress()
 
     vtkInteractorStyleTrackballCamera::OnKeyPress();
 }
+
+void CustomTrackballStyle::OnMouseMove()
+{
+    int* pos = this->GetInteractor()->GetEventPosition();
+    int* lastPos = this->GetInteractor()->GetLastEventPosition();
+
+    app->OnMouseMove(pos[0], pos[1], lastPos[0], lastPos[1], LeftButtonPressed, MiddleButtonPressed, RightButtonPressed);
+    //printf("[%4d, %4d] - [%4d, %4d]\n", lastPos[0], lastPos[1], pos[0], pos[1]);
+}

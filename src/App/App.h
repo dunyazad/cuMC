@@ -104,6 +104,11 @@ public:
     void RemoveMouseButtonReleaseCallback();
     void RemoveMouseButtonReleaseCallback(const string& name);
 
+    void AddMouseMoveReleaseCallback(function<void(App*, int, int, int, int, bool, bool, bool)> f);
+    void AddMouseMoveReleaseCallback(const string& name, function<void(App*, int, int, int, int, bool, bool, bool)> f);
+    void RemoveMouseMoveReleaseCallback();
+    void RemoveMouseMoveReleaseCallback(const string& name);
+
     void OnUpdate();
     void OnPostRender();
 
@@ -113,6 +118,7 @@ public:
     static void OnKeyPress();
     static void OnMouseButtonPress(int button);
     static void OnMouseButtonRelease(int button);
+    static void OnMouseMove(int posx, int posy, int lastx, int lasty, bool lButton, bool mButton, bool rButton);
 
     inline vtkSmartPointer<vtkRenderer> GetRenderer() const { return renderer; }
     inline vtkSmartPointer<vtkRenderWindow> GetRenderWindow() const { return renderWindow; }
@@ -120,6 +126,7 @@ public:
 
     inline AppConfiguration* Configuration() { return &configuration; }
 
+    map<string, void*> temp;
 private:
     static set<App*> s_instances;
     AppConfiguration configuration;
@@ -139,6 +146,7 @@ private:
     map<string, function<void(App*)>> keyPressCallbacks;
     map<string, function<void(App*, int)>> mouseButtonPressCallbacks;
     map<string, function<void(App*, int)>> mouseButtonReleaseCallbacks;
+    map<string, function<void(App*, int, int, int, int, bool, bool, bool)>> mouseMoveCallbacks;
 
     bool captureEnabled = false;
 };

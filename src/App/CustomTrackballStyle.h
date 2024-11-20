@@ -21,11 +21,13 @@ public:
     void HandleBothButtons();
 
     void OnKeyPress() override;
+    void OnMouseMove() override;
 
     inline void SetApp(App* app) { this->app = app; }
 
 private:
     App* app = nullptr;
     bool LeftButtonPressed = false;
+    bool MiddleButtonPressed = false;
     bool RightButtonPressed = false;
 };

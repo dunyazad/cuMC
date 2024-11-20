@@ -4,6 +4,22 @@
 
 namespace Algorithm
 {
+	struct Ray {
+		float origin[3];
+		float direction[3]; // Must be normalized
+	};
+
+	float RayPointDistanceSquared(const Ray& ray, const float* point);
+	
+	// Helper for max-heap (priority queue) comparison
+	struct MaxHeapEntry {
+		unsigned int pointIndex;
+		float distanceSquared;
+
+		bool operator<(const MaxHeapEntry& other) const {
+			return distanceSquared < other.distanceSquared; // Max-heap
+		}
+	};
 
 	class KDTreeNode
 	{
@@ -46,6 +62,16 @@ namespace Algorithm
 			root = InsertRecursive(root, point_index, 0);
 		}
 
+		void BuildTree(std::vector<unsigned int>& pointIndices)
+		{
+			if(nullptr != root)
+			{
+				Clear();
+			}
+
+			root = BuildTreeRecursive(pointIndices, 0);
+		}
+
 		unsigned int FindNearestNeighbor(const float* query) const
 		{
 			nearestNeighbor = root->point_index;
@@ -79,7 +105,27 @@ namespace Algorithm
 
 		inline bool IsEmpty() const { return nullptr == root; }
 
+		inline const float* GetPoints() const { return points; }
 		inline void SetPoints(const float* points) { this->points = points; }
+
+		std::vector<unsigned int> RayKNearestNeighbors(const Ray& ray, int k, float maxDistance = FLT_MAX) const {
+			std::priority_queue<MaxHeapEntry> maxHeap; // Max-heap for K nearest neighbors
+			RayKNNRecursive(root, ray, k, maxDistance, 0, maxHeap);
+
+			// Extract indices from the heap
+			std::vector<unsigned int> result;
+			while (!maxHeap.empty()) {
+				result.push_back(maxHeap.top().pointIndex);
+				maxHeap.pop();
+			}
+			std::reverse(result.begin(), result.end()); // Sort closest first
+			return result;
+		}
+
+		void TraversePreOrder(function<void(KDTreeNode*)> f) const
+		{
+			TraversePreOrderRecursive(root, f);
+		}
 
 	private:
 		const float* points;
@@ -124,6 +170,37 @@ namespace Algorithm
 			{
 				node->right = InsertRecursive(node->right, point_index, depth + 1);
 			}
+
+			return node;
+		}
+
+		KDTreeNode* BuildTreeRecursive(std::vector<unsigned int>& pointIndices, int depth)
+		{
+			if (pointIndices.empty()) {
+				return nullptr;
+			}
+
+			// Determine the current axis to split on
+			int axis = depth % 3;
+
+			// Sort the points along the current axis
+			std::sort(pointIndices.begin(), pointIndices.end(), [&](unsigned int lhs, unsigned int rhs) {
+				return points[lhs * 3 + axis] < points[rhs * 3 + axis];
+				});
+
+			// Find the median index
+			size_t medianIndex = pointIndices.size() / 2;
+
+			// Create a new node with the median point
+			KDTreeNode* node = new KDTreeNode(pointIndices[medianIndex]);
+
+			// Prepare left and right subsets
+			std::vector<unsigned int> leftIndices(pointIndices.begin(), pointIndices.begin() + medianIndex);
+			std::vector<unsigned int> rightIndices(pointIndices.begin() + medianIndex + 1, pointIndices.end());
+
+			// Recursively build the left and right subtrees
+			node->left = BuildTreeRecursive(leftIndices, depth + 1);
+			node->right = BuildTreeRecursive(rightIndices, depth + 1);
 
 			return node;
 		}
@@ -193,6 +270,87 @@ namespace Algorithm
 				RangeSearchRecursive(otherNode, query, squaredRadius, result, depth + 1);
 			}
 		}
-	};
 
+		void RayKNNRecursive(
+			KDTreeNode* node,
+			const Ray& ray,
+			int k,
+			float maxDistance,
+			int depth,
+			std::priority_queue<MaxHeapEntry>& maxHeap
+		) const {
+			if (node == nullptr) {
+				return;  // Base case: reached a leaf node
+			}
+
+			// Step 1: Compute the squared distance from the ray to the current node's point
+			float point[3] = {
+				points[node->point_index * 3 + 0],
+				points[node->point_index * 3 + 1],
+				points[node->point_index * 3 + 2]
+			};
+
+			float distanceSquared = RayPointDistanceSquared(ray, point);
+
+			// Step 2: Update the maxHeap if the current point is within maxDistance
+			if (distanceSquared <= maxDistance * maxDistance) {
+				if (maxHeap.size() < k) {
+					// Heap has fewer than k points, so add this point
+					maxHeap.push({ node->point_index, distanceSquared });
+				}
+				else if (distanceSquared < maxHeap.top().distanceSquared) {
+					// Replace the farthest point in the heap if this one is closer
+					maxHeap.pop();
+					maxHeap.push({ node->point_index, distanceSquared });
+				}
+			}
+
+			// Step 3: Determine which subtree to explore first
+			int currentDimension = depth % 3;
+
+			float nodeValue = points[node->point_index * 3 + currentDimension];
+			float rayOriginValue = ray.origin[currentDimension];
+
+			KDTreeNode* closerNode = nullptr;
+			KDTreeNode* fartherNode = nullptr;
+
+			// Choose which child node is closer based on the ray origin value
+			if (rayOriginValue < nodeValue) {
+				closerNode = node->left;
+				fartherNode = node->right;
+			}
+			else {
+				closerNode = node->right;
+				fartherNode = node->left;
+			}
+
+			// Step 4: Explore the closer node first
+			RayKNNRecursive(closerNode, ray, k, maxDistance, depth + 1, maxHeap);
+
+			// Step 5: Determine whether we need to explore the farther node
+			float planeDistance = rayOriginValue - nodeValue;  // Distance to the splitting plane
+			float planeDistanceSquared = planeDistance * planeDistance;
+
+			// We need to explore the farther node if:
+			// 1. The heap has fewer than k points (we need more neighbors)
+			// 2. The distance to the splitting plane is less than or equal to the current farthest distance in the heap
+			if (maxHeap.size() < k || planeDistanceSquared <= maxHeap.top().distanceSquared) {
+				RayKNNRecursive(fartherNode, ray, k, maxDistance, depth + 1, maxHeap);
+			}
+		}
+
+		void TraversePreOrderRecursive(KDTreeNode* node, function<void(KDTreeNode*)> f) const
+		{
+			if (node == nullptr) return;
+
+			// Visit the current node
+			f(node);
+
+			// Traverse the left subtree
+			TraversePreOrderRecursive(node->left, f);
+
+			// Traverse the right subtree
+			TraversePreOrderRecursive(node->right, f);
+		}
+	};
 }
