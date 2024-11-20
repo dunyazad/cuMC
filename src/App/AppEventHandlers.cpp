@@ -288,21 +288,32 @@ void OnMouseButtonRelease(App* app, int button)
 		VD::Clear("NN");
 		auto octree = (Spatial::Octree*)app->registry["octree"];
 
-		auto result = octree->searchPointsNearRay(Spatial::Ray(cameraPosition, rayDirection), 1.0f);
+		auto result = octree->searchPointsNearRay(Spatial::Ray(cameraPosition, rayDirection), 0.1f);
 		t = Time::End(t, "Picking");
 
-		for (auto& i : result)
+		if (0 < result.size())
 		{
-			auto p = octree->points[i];
-			VD::AddSphere("NN", p, { 0.15f, 0.15f, 0.15f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
-		}
+			int minDistanceIndex = result[0];
+			float minDistance = FLT_MAX;
+			for (auto& i : result)
+			{
+				auto p = octree->points[i];
+				auto distance = (p - cameraPosition).squaredNorm();
+				if (distance < minDistance)
+				{
+					minDistanceIndex = i;
+					minDistance = distance;
+				}
+				VD::AddSphere("NN", p, { 0.15f, 0.15f, 0.15f }, { 0.0f, 0.0f, 1.0f }, Color4::Red);
+			}
 
-		{
-			auto p = octree->points[result[0]];
-			VD::AddSphere("NN", p, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Blue);
+			{
+				auto p = octree->points[minDistanceIndex];
+				VD::AddSphere("NN", p, { 0.5f, 0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f }, Color4::Blue);
 
-			camera->SetFocalPoint(p.x(), p.y(), p.z());
-			renderWindow->Render();
+				camera->SetFocalPoint(p.x(), p.y(), p.z());
+				renderWindow->Render();
+			}
 		}
 
 		//auto pi = octree->pickPoint(Spatial::Ray(cameraPosition, rayDirection));

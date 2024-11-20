@@ -8,531 +8,309 @@
 
 namespace Spatial
 {
-#define FLT_MAX          3.402823466e+38F        // max value
+    struct Ray {
+        Eigen::Vector3f origin;
+        Eigen::Vector3f direction;
 
-	const int MARCHING_CUBES_TABLE[256] = {
-	0x000, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
-	0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
-	0x190, 0x099, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
-	0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
-	0x230, 0x339, 0x033, 0x13a, 0x636, 0x73f, 0x435, 0x53c,
-	0xb3c, 0xa35, 0xd3f, 0xc36, 0xf3a, 0xe33, 0x939, 0x830,
-	0x3a0, 0x2a9, 0x1a3, 0x0aa, 0x7a6, 0x6af, 0x5a5, 0x4ac,
-	0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
-	0x460, 0x569, 0x663, 0x76a, 0x066, 0x16f, 0x265, 0x36c,
-	0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
-	0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0x0ff, 0x3f5, 0x2fc,
-	0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
-	0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x055, 0x15c,
-	0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950,
-	0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf, 0x1c5, 0x0cc,
-	0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0,
-	0x8c0, 0x9c9, 0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc,
-	0x0cc, 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
-	0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c,
-	0x15c, 0x055, 0x35f, 0x256, 0x55a, 0x453, 0x759, 0x650,
-	0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc,
-	0x2fc, 0x3f5, 0x0ff, 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0,
-	0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65, 0xc6c,
-	0x36c, 0x265, 0x16f, 0x066, 0x76a, 0x663, 0x569, 0x460,
-	0xca0, 0xda9, 0xea3, 0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac,
-	0x4ac, 0x5a5, 0x6af, 0x7a6, 0x0aa, 0x1a3, 0x2a9, 0x3a0,
-	0x830, 0x939, 0xa33, 0xb3a, 0xc36, 0xd3f, 0xe35, 0xf3c,
-	0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x033, 0x339, 0x230,
-	0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
-	0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x099, 0x190,
-	0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
-	0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x000
-	};
+        Ray(const Eigen::Vector3f& origin_, const Eigen::Vector3f& direction_)
+            : origin(origin_), direction(direction_.normalized()) {}
+    };
 
-	const int TRIANGLE_TABLE[256][16] =
-	{ {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 2, 10, 0, 2, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{2, 8, 3, 2, 10, 8, 10, 9, 8, -1, -1, -1, -1, -1, -1, -1},
-	{3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 11, 2, 8, 11, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 9, 0, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 11, 2, 1, 9, 11, 9, 8, 11, -1, -1, -1, -1, -1, -1, -1},
-	{3, 10, 1, 11, 10, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 10, 1, 0, 8, 10, 8, 11, 10, -1, -1, -1, -1, -1, -1, -1},
-	{3, 9, 0, 3, 11, 9, 11, 10, 9, -1, -1, -1, -1, -1, -1, -1},
-	{9, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 3, 0, 7, 3, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 1, 9, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 1, 9, 4, 7, 1, 7, 3, 1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 4, 7, 3, 0, 4, 1, 2, 10, -1, -1, -1, -1, -1, -1, -1},
-	{9, 2, 10, 9, 0, 2, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1},
-	{2, 10, 9, 2, 9, 7, 2, 7, 3, 7, 9, 4, -1, -1, -1, -1},
-	{8, 4, 7, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{11, 4, 7, 11, 2, 4, 2, 0, 4, -1, -1, -1, -1, -1, -1, -1},
-	{9, 0, 1, 8, 4, 7, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1},
-	{4, 7, 11, 9, 4, 11, 9, 11, 2, 9, 2, 1, -1, -1, -1, -1},
-	{3, 10, 1, 3, 11, 10, 7, 8, 4, -1, -1, -1, -1, -1, -1, -1},
-	{1, 11, 10, 1, 4, 11, 1, 0, 4, 7, 11, 4, -1, -1, -1, -1},
-	{4, 7, 8, 9, 0, 11, 9, 11, 10, 11, 0, 3, -1, -1, -1, -1},
-	{4, 7, 11, 4, 11, 9, 9, 11, 10, -1, -1, -1, -1, -1, -1, -1},
-	{9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 5, 4, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 5, 4, 1, 5, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{8, 5, 4, 8, 3, 5, 3, 1, 5, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 0, 8, 1, 2, 10, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1},
-	{5, 2, 10, 5, 4, 2, 4, 0, 2, -1, -1, -1, -1, -1, -1, -1},
-	{2, 10, 5, 3, 2, 5, 3, 5, 4, 3, 4, 8, -1, -1, -1, -1},
-	{9, 5, 4, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 11, 2, 0, 8, 11, 4, 9, 5, -1, -1, -1, -1, -1, -1, -1},
-	{0, 5, 4, 0, 1, 5, 2, 3, 11, -1, -1, -1, -1, -1, -1, -1},
-	{2, 1, 5, 2, 5, 8, 2, 8, 11, 4, 8, 5, -1, -1, -1, -1},
-	{10, 3, 11, 10, 1, 3, 9, 5, 4, -1, -1, -1, -1, -1, -1, -1},
-	{4, 9, 5, 0, 8, 1, 8, 10, 1, 8, 11, 10, -1, -1, -1, -1},
-	{5, 4, 0, 5, 0, 11, 5, 11, 10, 11, 0, 3, -1, -1, -1, -1},
-	{5, 4, 8, 5, 8, 10, 10, 8, 11, -1, -1, -1, -1, -1, -1, -1},
-	{9, 7, 8, 5, 7, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 3, 0, 9, 5, 3, 5, 7, 3, -1, -1, -1, -1, -1, -1, -1},
-	{0, 7, 8, 0, 1, 7, 1, 5, 7, -1, -1, -1, -1, -1, -1, -1},
-	{1, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 7, 8, 9, 5, 7, 10, 1, 2, -1, -1, -1, -1, -1, -1, -1},
-	{10, 1, 2, 9, 5, 0, 5, 3, 0, 5, 7, 3, -1, -1, -1, -1},
-	{8, 0, 2, 8, 2, 5, 8, 5, 7, 10, 5, 2, -1, -1, -1, -1},
-	{2, 10, 5, 2, 5, 3, 3, 5, 7, -1, -1, -1, -1, -1, -1, -1},
-	{7, 9, 5, 7, 8, 9, 3, 11, 2, -1, -1, -1, -1, -1, -1, -1},
-	{9, 5, 7, 9, 7, 2, 9, 2, 0, 2, 7, 11, -1, -1, -1, -1},
-	{2, 3, 11, 0, 1, 8, 1, 7, 8, 1, 5, 7, -1, -1, -1, -1},
-	{11, 2, 1, 11, 1, 7, 7, 1, 5, -1, -1, -1, -1, -1, -1, -1},
-	{9, 5, 8, 8, 5, 7, 10, 1, 3, 10, 3, 11, -1, -1, -1, -1},
-	{5, 7, 0, 5, 0, 9, 7, 11, 0, 1, 0, 10, 11, 10, 0, -1},
-	{11, 10, 0, 11, 0, 3, 10, 5, 0, 8, 0, 7, 5, 7, 0, -1},
-	{11, 10, 5, 7, 11, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 0, 1, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 8, 3, 1, 9, 8, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1},
-	{1, 6, 5, 2, 6, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 6, 5, 1, 2, 6, 3, 0, 8, -1, -1, -1, -1, -1, -1, -1},
-	{9, 6, 5, 9, 0, 6, 0, 2, 6, -1, -1, -1, -1, -1, -1, -1},
-	{5, 9, 8, 5, 8, 2, 5, 2, 6, 3, 2, 8, -1, -1, -1, -1},
-	{2, 3, 11, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{11, 0, 8, 11, 2, 0, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1},
-	{0, 1, 9, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1, -1, -1, -1},
-	{5, 10, 6, 1, 9, 2, 9, 11, 2, 9, 8, 11, -1, -1, -1, -1},
-	{6, 3, 11, 6, 5, 3, 5, 1, 3, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 11, 0, 11, 5, 0, 5, 1, 5, 11, 6, -1, -1, -1, -1},
-	{3, 11, 6, 0, 3, 6, 0, 6, 5, 0, 5, 9, -1, -1, -1, -1},
-	{6, 5, 9, 6, 9, 11, 11, 9, 8, -1, -1, -1, -1, -1, -1, -1},
-	{5, 10, 6, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 3, 0, 4, 7, 3, 6, 5, 10, -1, -1, -1, -1, -1, -1, -1},
-	{1, 9, 0, 5, 10, 6, 8, 4, 7, -1, -1, -1, -1, -1, -1, -1},
-	{10, 6, 5, 1, 9, 7, 1, 7, 3, 7, 9, 4, -1, -1, -1, -1},
-	{6, 1, 2, 6, 5, 1, 4, 7, 8, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 5, 5, 2, 6, 3, 0, 4, 3, 4, 7, -1, -1, -1, -1},
-	{8, 4, 7, 9, 0, 5, 0, 6, 5, 0, 2, 6, -1, -1, -1, -1},
-	{7, 3, 9, 7, 9, 4, 3, 2, 9, 5, 9, 6, 2, 6, 9, -1},
-	{3, 11, 2, 7, 8, 4, 10, 6, 5, -1, -1, -1, -1, -1, -1, -1},
-	{5, 10, 6, 4, 7, 2, 4, 2, 0, 2, 7, 11, -1, -1, -1, -1},
-	{0, 1, 9, 4, 7, 8, 2, 3, 11, 5, 10, 6, -1, -1, -1, -1},
-	{9, 2, 1, 9, 11, 2, 9, 4, 11, 7, 11, 4, 5, 10, 6, -1},
-	{8, 4, 7, 3, 11, 5, 3, 5, 1, 5, 11, 6, -1, -1, -1, -1},
-	{5, 1, 11, 5, 11, 6, 1, 0, 11, 7, 11, 4, 0, 4, 11, -1},
-	{0, 5, 9, 0, 6, 5, 0, 3, 6, 11, 6, 3, 8, 4, 7, -1},
-	{6, 5, 9, 6, 9, 11, 4, 7, 9, 7, 11, 9, -1, -1, -1, -1},
-	{10, 4, 9, 6, 4, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 10, 6, 4, 9, 10, 0, 8, 3, -1, -1, -1, -1, -1, -1, -1},
-	{10, 0, 1, 10, 6, 0, 6, 4, 0, -1, -1, -1, -1, -1, -1, -1},
-	{8, 3, 1, 8, 1, 6, 8, 6, 4, 6, 1, 10, -1, -1, -1, -1},
-	{1, 4, 9, 1, 2, 4, 2, 6, 4, -1, -1, -1, -1, -1, -1, -1},
-	{3, 0, 8, 1, 2, 9, 2, 4, 9, 2, 6, 4, -1, -1, -1, -1},
-	{0, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{8, 3, 2, 8, 2, 4, 4, 2, 6, -1, -1, -1, -1, -1, -1, -1},
-	{10, 4, 9, 10, 6, 4, 11, 2, 3, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 2, 2, 8, 11, 4, 9, 10, 4, 10, 6, -1, -1, -1, -1},
-	{3, 11, 2, 0, 1, 6, 0, 6, 4, 6, 1, 10, -1, -1, -1, -1},
-	{6, 4, 1, 6, 1, 10, 4, 8, 1, 2, 1, 11, 8, 11, 1, -1},
-	{9, 6, 4, 9, 3, 6, 9, 1, 3, 11, 6, 3, -1, -1, -1, -1},
-	{8, 11, 1, 8, 1, 0, 11, 6, 1, 9, 1, 4, 6, 4, 1, -1},
-	{3, 11, 6, 3, 6, 0, 0, 6, 4, -1, -1, -1, -1, -1, -1, -1},
-	{6, 4, 8, 11, 6, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{7, 10, 6, 7, 8, 10, 8, 9, 10, -1, -1, -1, -1, -1, -1, -1},
-	{0, 7, 3, 0, 10, 7, 0, 9, 10, 6, 7, 10, -1, -1, -1, -1},
-	{10, 6, 7, 1, 10, 7, 1, 7, 8, 1, 8, 0, -1, -1, -1, -1},
-	{10, 6, 7, 10, 7, 1, 1, 7, 3, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 6, 1, 6, 8, 1, 8, 9, 8, 6, 7, -1, -1, -1, -1},
-	{2, 6, 9, 2, 9, 1, 6, 7, 9, 0, 9, 3, 7, 3, 9, -1},
-	{7, 8, 0, 7, 0, 6, 6, 0, 2, -1, -1, -1, -1, -1, -1, -1},
-	{7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{2, 3, 11, 10, 6, 8, 10, 8, 9, 8, 6, 7, -1, -1, -1, -1},
-	{2, 0, 7, 2, 7, 11, 0, 9, 7, 6, 7, 10, 9, 10, 7, -1},
-	{1, 8, 0, 1, 7, 8, 1, 10, 7, 6, 7, 10, 2, 3, 11, -1},
-	{11, 2, 1, 11, 1, 7, 10, 6, 1, 6, 7, 1, -1, -1, -1, -1},
-	{8, 9, 6, 8, 6, 7, 9, 1, 6, 11, 6, 3, 1, 3, 6, -1},
-	{0, 9, 1, 11, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{7, 8, 0, 7, 0, 6, 3, 11, 0, 11, 6, 0, -1, -1, -1, -1},
-	{7, 11, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 0, 8, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 1, 9, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{8, 1, 9, 8, 3, 1, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1},
-	{10, 1, 2, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, 3, 0, 8, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1},
-	{2, 9, 0, 2, 10, 9, 6, 11, 7, -1, -1, -1, -1, -1, -1, -1},
-	{6, 11, 7, 2, 10, 3, 10, 8, 3, 10, 9, 8, -1, -1, -1, -1},
-	{7, 2, 3, 6, 2, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{7, 0, 8, 7, 6, 0, 6, 2, 0, -1, -1, -1, -1, -1, -1, -1},
-	{2, 7, 6, 2, 3, 7, 0, 1, 9, -1, -1, -1, -1, -1, -1, -1},
-	{1, 6, 2, 1, 8, 6, 1, 9, 8, 8, 7, 6, -1, -1, -1, -1},
-	{10, 7, 6, 10, 1, 7, 1, 3, 7, -1, -1, -1, -1, -1, -1, -1},
-	{10, 7, 6, 1, 7, 10, 1, 8, 7, 1, 0, 8, -1, -1, -1, -1},
-	{0, 3, 7, 0, 7, 10, 0, 10, 9, 6, 10, 7, -1, -1, -1, -1},
-	{7, 6, 10, 7, 10, 8, 8, 10, 9, -1, -1, -1, -1, -1, -1, -1},
-	{6, 8, 4, 11, 8, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 6, 11, 3, 0, 6, 0, 4, 6, -1, -1, -1, -1, -1, -1, -1},
-	{8, 6, 11, 8, 4, 6, 9, 0, 1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 4, 6, 9, 6, 3, 9, 3, 1, 11, 3, 6, -1, -1, -1, -1},
-	{6, 8, 4, 6, 11, 8, 2, 10, 1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, 3, 0, 11, 0, 6, 11, 0, 4, 6, -1, -1, -1, -1},
-	{4, 11, 8, 4, 6, 11, 0, 2, 9, 2, 10, 9, -1, -1, -1, -1},
-	{10, 9, 3, 10, 3, 2, 9, 4, 3, 11, 3, 6, 4, 6, 3, -1},
-	{8, 2, 3, 8, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1},
-	{0, 4, 2, 4, 6, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 9, 0, 2, 3, 4, 2, 4, 6, 4, 3, 8, -1, -1, -1, -1},
-	{1, 9, 4, 1, 4, 2, 2, 4, 6, -1, -1, -1, -1, -1, -1, -1},
-	{8, 1, 3, 8, 6, 1, 8, 4, 6, 6, 10, 1, -1, -1, -1, -1},
-	{10, 1, 0, 10, 0, 6, 6, 0, 4, -1, -1, -1, -1, -1, -1, -1},
-	{4, 6, 3, 4, 3, 8, 6, 10, 3, 0, 3, 9, 10, 9, 3, -1},
-	{10, 9, 4, 6, 10, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 9, 5, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, 4, 9, 5, 11, 7, 6, -1, -1, -1, -1, -1, -1, -1},
-	{5, 0, 1, 5, 4, 0, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1},
-	{11, 7, 6, 8, 3, 4, 3, 5, 4, 3, 1, 5, -1, -1, -1, -1},
-	{9, 5, 4, 10, 1, 2, 7, 6, 11, -1, -1, -1, -1, -1, -1, -1},
-	{6, 11, 7, 1, 2, 10, 0, 8, 3, 4, 9, 5, -1, -1, -1, -1},
-	{7, 6, 11, 5, 4, 10, 4, 2, 10, 4, 0, 2, -1, -1, -1, -1},
-	{3, 4, 8, 3, 5, 4, 3, 2, 5, 10, 5, 2, 11, 7, 6, -1},
-	{7, 2, 3, 7, 6, 2, 5, 4, 9, -1, -1, -1, -1, -1, -1, -1},
-	{9, 5, 4, 0, 8, 6, 0, 6, 2, 6, 8, 7, -1, -1, -1, -1},
-	{3, 6, 2, 3, 7, 6, 1, 5, 0, 5, 4, 0, -1, -1, -1, -1},
-	{6, 2, 8, 6, 8, 7, 2, 1, 8, 4, 8, 5, 1, 5, 8, -1},
-	{9, 5, 4, 10, 1, 6, 1, 7, 6, 1, 3, 7, -1, -1, -1, -1},
-	{1, 6, 10, 1, 7, 6, 1, 0, 7, 8, 7, 0, 9, 5, 4, -1},
-	{4, 0, 10, 4, 10, 5, 0, 3, 10, 6, 10, 7, 3, 7, 10, -1},
-	{7, 6, 10, 7, 10, 8, 5, 4, 10, 4, 8, 10, -1, -1, -1, -1},
-	{6, 9, 5, 6, 11, 9, 11, 8, 9, -1, -1, -1, -1, -1, -1, -1},
-	{3, 6, 11, 0, 6, 3, 0, 5, 6, 0, 9, 5, -1, -1, -1, -1},
-	{0, 11, 8, 0, 5, 11, 0, 1, 5, 5, 6, 11, -1, -1, -1, -1},
-	{6, 11, 3, 6, 3, 5, 5, 3, 1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 10, 9, 5, 11, 9, 11, 8, 11, 5, 6, -1, -1, -1, -1},
-	{0, 11, 3, 0, 6, 11, 0, 9, 6, 5, 6, 9, 1, 2, 10, -1},
-	{11, 8, 5, 11, 5, 6, 8, 0, 5, 10, 5, 2, 0, 2, 5, -1},
-	{6, 11, 3, 6, 3, 5, 2, 10, 3, 10, 5, 3, -1, -1, -1, -1},
-	{5, 8, 9, 5, 2, 8, 5, 6, 2, 3, 8, 2, -1, -1, -1, -1},
-	{9, 5, 6, 9, 6, 0, 0, 6, 2, -1, -1, -1, -1, -1, -1, -1},
-	{1, 5, 8, 1, 8, 0, 5, 6, 8, 3, 8, 2, 6, 2, 8, -1},
-	{1, 5, 6, 2, 1, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 3, 6, 1, 6, 10, 3, 8, 6, 5, 6, 9, 8, 9, 6, -1},
-	{10, 1, 0, 10, 0, 6, 9, 5, 0, 5, 6, 0, -1, -1, -1, -1},
-	{0, 3, 8, 5, 6, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{10, 5, 6, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{11, 5, 10, 7, 5, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{11, 5, 10, 11, 7, 5, 8, 3, 0, -1, -1, -1, -1, -1, -1, -1},
-	{5, 11, 7, 5, 10, 11, 1, 9, 0, -1, -1, -1, -1, -1, -1, -1},
-	{10, 7, 5, 10, 11, 7, 9, 8, 1, 8, 3, 1, -1, -1, -1, -1},
-	{11, 1, 2, 11, 7, 1, 7, 5, 1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, 1, 2, 7, 1, 7, 5, 7, 2, 11, -1, -1, -1, -1},
-	{9, 7, 5, 9, 2, 7, 9, 0, 2, 2, 11, 7, -1, -1, -1, -1},
-	{7, 5, 2, 7, 2, 11, 5, 9, 2, 3, 2, 8, 9, 8, 2, -1},
-	{2, 5, 10, 2, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1},
-	{8, 2, 0, 8, 5, 2, 8, 7, 5, 10, 2, 5, -1, -1, -1, -1},
-	{9, 0, 1, 5, 10, 3, 5, 3, 7, 3, 10, 2, -1, -1, -1, -1},
-	{9, 8, 2, 9, 2, 1, 8, 7, 2, 10, 2, 5, 7, 5, 2, -1},
-	{1, 3, 5, 3, 7, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 7, 0, 7, 1, 1, 7, 5, -1, -1, -1, -1, -1, -1, -1},
-	{9, 0, 3, 9, 3, 5, 5, 3, 7, -1, -1, -1, -1, -1, -1, -1},
-	{9, 8, 7, 5, 9, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{5, 8, 4, 5, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1},
-	{5, 0, 4, 5, 11, 0, 5, 10, 11, 11, 3, 0, -1, -1, -1, -1},
-	{0, 1, 9, 8, 4, 10, 8, 10, 11, 10, 4, 5, -1, -1, -1, -1},
-	{10, 11, 4, 10, 4, 5, 11, 3, 4, 9, 4, 1, 3, 1, 4, -1},
-	{2, 5, 1, 2, 8, 5, 2, 11, 8, 4, 5, 8, -1, -1, -1, -1},
-	{0, 4, 11, 0, 11, 3, 4, 5, 11, 2, 11, 1, 5, 1, 11, -1},
-	{0, 2, 5, 0, 5, 9, 2, 11, 5, 4, 5, 8, 11, 8, 5, -1},
-	{9, 4, 5, 2, 11, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{2, 5, 10, 3, 5, 2, 3, 4, 5, 3, 8, 4, -1, -1, -1, -1},
-	{5, 10, 2, 5, 2, 4, 4, 2, 0, -1, -1, -1, -1, -1, -1, -1},
-	{3, 10, 2, 3, 5, 10, 3, 8, 5, 4, 5, 8, 0, 1, 9, -1},
-	{5, 10, 2, 5, 2, 4, 1, 9, 2, 9, 4, 2, -1, -1, -1, -1},
-	{8, 4, 5, 8, 5, 3, 3, 5, 1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 4, 5, 1, 0, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{8, 4, 5, 8, 5, 3, 9, 0, 5, 0, 3, 5, -1, -1, -1, -1},
-	{9, 4, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 11, 7, 4, 9, 11, 9, 10, 11, -1, -1, -1, -1, -1, -1, -1},
-	{0, 8, 3, 4, 9, 7, 9, 11, 7, 9, 10, 11, -1, -1, -1, -1},
-	{1, 10, 11, 1, 11, 4, 1, 4, 0, 7, 4, 11, -1, -1, -1, -1},
-	{3, 1, 4, 3, 4, 8, 1, 10, 4, 7, 4, 11, 10, 11, 4, -1},
-	{4, 11, 7, 9, 11, 4, 9, 2, 11, 9, 1, 2, -1, -1, -1, -1},
-	{9, 7, 4, 9, 11, 7, 9, 1, 11, 2, 11, 1, 0, 8, 3, -1},
-	{11, 7, 4, 11, 4, 2, 2, 4, 0, -1, -1, -1, -1, -1, -1, -1},
-	{11, 7, 4, 11, 4, 2, 8, 3, 4, 3, 2, 4, -1, -1, -1, -1},
-	{2, 9, 10, 2, 7, 9, 2, 3, 7, 7, 4, 9, -1, -1, -1, -1},
-	{9, 10, 7, 9, 7, 4, 10, 2, 7, 8, 7, 0, 2, 0, 7, -1},
-	{3, 7, 10, 3, 10, 2, 7, 4, 10, 1, 10, 0, 4, 0, 10, -1},
-	{1, 10, 2, 8, 7, 4, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 9, 1, 4, 1, 7, 7, 1, 3, -1, -1, -1, -1, -1, -1, -1},
-	{4, 9, 1, 4, 1, 7, 0, 8, 1, 8, 7, 1, -1, -1, -1, -1},
-	{4, 0, 3, 7, 4, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{4, 8, 7, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{9, 10, 8, 10, 11, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 0, 9, 3, 9, 11, 11, 9, 10, -1, -1, -1, -1, -1, -1, -1},
-	{0, 1, 10, 0, 10, 8, 8, 10, 11, -1, -1, -1, -1, -1, -1, -1},
-	{3, 1, 10, 11, 3, 10, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 2, 11, 1, 11, 9, 9, 11, 8, -1, -1, -1, -1, -1, -1, -1},
-	{3, 0, 9, 3, 9, 11, 1, 2, 9, 2, 11, 9, -1, -1, -1, -1},
-	{0, 2, 11, 8, 0, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{3, 2, 11, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{2, 3, 8, 2, 8, 10, 10, 8, 9, -1, -1, -1, -1, -1, -1, -1},
-	{9, 10, 2, 0, 9, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{2, 3, 8, 2, 8, 10, 0, 1, 8, 1, 10, 8, -1, -1, -1, -1},
-	{1, 10, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{1, 3, 8, 9, 1, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 9, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-	{-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1} };
+    struct OctreeNode {
+        std::unique_ptr<OctreeNode> children[8];
+        vector<size_t> pointIndices;  // Only leaf nodes will have this populated.
+        Eigen::AlignedBox3f aabb;     // Axis-aligned bounding box for this node's region.
+        int depth;                    // Depth level of this node in the octree.
 
-	struct Vertex {
-		Eigen::Vector3f position;
-		Eigen::Vector3f normal;
-	};
+        // Constructor
+        OctreeNode(const Eigen::AlignedBox3f& aabb_, int depth_)
+            : aabb(aabb_), depth(depth_) {}
+    };
 
-	// 옥트리 노드 클래스 정의 (간단하게 TSDF 통합 구현)
-	class OctreeNode
-	{
-	public:
-		Eigen::Vector3f center;   // 노드 중심
-		float nodeSize;        // 노드 크기
-		float tsdf_value;  // 통합된 TSDF 값
-		float weight;      // 통합된 가중치
-		bool is_leaf;      // 리프 노드 여부
-		OctreeNode* children[8] = { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr };
+    class Octree {
+    public:
+        Octree(const Eigen::AlignedBox3f& rootAABB, int maxDepth, int maxPointsPerNode)
+            : root(std::make_unique<OctreeNode>(rootAABB, 0)), maxDepth(maxDepth), maxPointsPerNode(maxPointsPerNode) {}
 
-		OctreeNode() : center({ 0.0f, 0.0f, 0.0f }), nodeSize(0.0f), tsdf_value(FLT_MAX), weight(0.0f), is_leaf(true) {
-		}
+        void setPoints(Eigen::Vector3f* points, Eigen::Vector3f* normals, size_t numberOfPoints) {
+            this->points = points;
+            this->normals = normals;
+            this->numberOfPoints = numberOfPoints;
+        }
 
-		OctreeNode(Eigen::Vector3f c, float s) : center(c), nodeSize(s), tsdf_value(FLT_MAX), weight(0.0f), is_leaf(true) {
-		}
+        void insert(size_t index) {
+            if (nullptr == points)
+            {
+                printf("points is not set.\n");
+                return;
+            }
+            insert(root.get(), index);
+        }
 
-		~OctreeNode() {
-			//for (auto& child : children) {
-			//	delete child;
-			//}
-		}
-	};
+        void traverse(function<void(OctreeNode* node)> f) {
+            traverseNode(root.get(), f);
+        }
 
-	// 옥트리 클래스 정의
-	class Octree {
-	public:
-		Octree(Eigen::Vector3f center, float size, size_t reservedNodeCount) {
-			nodes.resize(reservedNodeCount);
-			//root = new OctreeNode(center, size);
-			root = NewNode(center, size);
-		}
+        size_t pickPoint(const Ray& ray) {
+            float closestDist = std::numeric_limits<float>::max();
+            size_t closestPointIndex = -1;
+            bool found = pickPointNode_OriginDistance(root.get(), ray, closestDist, closestPointIndex);
+            if (found) {
+                return closestPointIndex;
+            }
+            return -1;
+        }
 
-		~Octree() {
-			//delete root;
-		}
+        vector<size_t> searchPointsNearRay(const Ray& ray, float maxDistance) {
+            vector<size_t> result;
+            searchPointsNearRayNode(root.get(), ray, maxDistance, result);
+            return result;
+        }
 
-		// 포인트를 통합 (Eigen::Vector3f 위치, TSDF 값 및 가중치가 파라미터로 제공됨)
-		void integrate_point(const Eigen::Vector3f& position, float tsdf, float weight) {
-			integrate_point_recursive(root, position, tsdf, weight);
-		}
+        Eigen::Vector3f* points = nullptr;
+        Eigen::Vector3f* normals = nullptr;
+        size_t numberOfPoints = 0;
 
-		// 콜백을 사용한 옥트리 순회
-		void traverse(std::function<void(const OctreeNode*, int)> callback) const {
-			traverse_recursive(root, 0, callback);
-		}
+    private:
+        std::unique_ptr<OctreeNode> root;
+        int maxDepth;
+        int maxPointsPerNode;
 
-		OctreeNode* NewNode(const Eigen::Vector3f& center, float nodeSize)
-		{
-			nodeIndex++;
-			nodes[nodeIndex].center = center;
-			nodes[nodeIndex].nodeSize = nodeSize;
-			return &(nodes[nodeIndex]);
-		}
+        void insert(OctreeNode* node, size_t index) {
+            Eigen::Vector3f& point = points[index];
+            // Ensure point lies within the node's bounding box
+            if (!node->aabb.contains(point)) {
+                return;
+            }
 
-		// Surface extraction method
-		void extract_surface(std::vector<Vertex>& vertices) {
-			// Traverse octree to find active nodes
-			traverse([this, &vertices](const OctreeNode* node, int depth) {
-				if (node->is_leaf && has_surface(node)) {
-					// Apply Marching Cubes to the current voxel represented by the node
-					process_node_for_surface(node, vertices);
-				}
-				});
-		}
+            // If we are at the maximum depth, add the point index to the leaf node
+            if (node->depth == maxDepth) {
+                node->pointIndices.push_back(index);
+                return;
+            }
 
-	private:
-		OctreeNode* root;
-		std::vector<OctreeNode> nodes;
-		size_t nodeIndex = 0;
+            // If this node has no children, we need to subdivide to reach max depth
+            if (node->children[0] == nullptr) {
+                subdivide(node);
+            }
 
-		// 재귀적으로 TSDF 값 통합
-		void integrate_point_recursive(OctreeNode* node, const Eigen::Vector3f& position, float tsdf, float weight) {
-			if (!is_point_in_node(node, position)) return;
+            // Determine the correct child index for the point and insert it
+            Eigen::Vector3f mid = (node->aabb.min() + node->aabb.max()) * 0.5f;
+            int childIndex = determineChildIndex(point, mid);
+            insert(node->children[childIndex].get(), index);
+        }
 
-			// 노드 크기가 충분히 작아지면 TSDF와 가중치를 업데이트
-			if (node->nodeSize < 0.025f) {
-				if (FLT_MAX == node->tsdf_value)
-				{
-					node->tsdf_value = tsdf;
-					node->weight = weight;
-				}
-				else
-				{
-					node->tsdf_value = (node->tsdf_value * node->weight + tsdf * weight) / (node->weight + weight);
-					node->weight += weight;
-				}
+        void subdivide(OctreeNode* node) {
+            // Calculate the mid-point of the current bounding box
+            Eigen::Vector3f min = node->aabb.min();
+            Eigen::Vector3f max = node->aabb.max();
+            Eigen::Vector3f mid = (min + max) * 0.5f;
 
-				//std::cout << "Integrated TSDF value at node (" << node->center.transpose() << "): " << node->tsdf_value << std::endl;
-        
-				return;
-			}
+            // Create 8 child AABBs for each sub-region
+            for (int i = 0; i < 8; ++i) {
+                Eigen::Vector3f childMin = min;
+                Eigen::Vector3f childMax = max;
 
-			// 리프 노드를 분할하고, 각 하위 노드에 대해 포인트를 통합
-			if (node->is_leaf) {
-				subdivide(node);
-			}
+                // Determine the boundaries of the child AABB
+                if (i & 1) childMin.x() = mid.x(); else childMax.x() = mid.x();
+                if (i & 2) childMin.y() = mid.y(); else childMax.y() = mid.y();
+                if (i & 4) childMin.z() = mid.z(); else childMax.z() = mid.z();
 
-			for (auto& child : node->children) {
-				integrate_point_recursive(child, position, tsdf, weight);
-			}
-		}
+                Eigen::AlignedBox3f childAABB(childMin, childMax);
+                node->children[i] = std::make_unique<OctreeNode>(childAABB, node->depth + 1);
+            }
+        }
 
-		// 포인트가 노드 안에 있는지 확인
-		bool is_point_in_node(const OctreeNode* node, const Eigen::Vector3f& point) {
-			return (point.array() >= (node->center.array() - node->nodeSize)).all() &&
-				(point.array() <= (node->center.array() + node->nodeSize)).all();
-		}
+        int determineChildIndex(const Eigen::Vector3f& point, const Eigen::Vector3f& mid) {
+            int index = 0;
+            if (point.x() > mid.x()) index |= 1;
+            if (point.y() > mid.y()) index |= 2;
+            if (point.z() > mid.z()) index |= 4;
+            return index;
+        }
 
-		// 재귀적으로 순회하며 콜백 호출
-		void traverse_recursive(const OctreeNode* node, int depth, std::function<void(const OctreeNode*, int)> callback) const {
-			if (node == nullptr) return;
+        bool pickPointNode_RayDistance(OctreeNode* node, const Ray& ray, float& closestDist, size_t& closestPointIndex) {
+            if (node == nullptr) {
+                return false;
+            }
 
-			// 현재 노드에 대해 콜백 호출
-			callback(node, depth);
+            // Check if the ray intersects with the node's AABB
+            if (!rayIntersectsAABB(ray, node->aabb)) {
+                return false;
+            }
 
-			// 리프 노드가 아니면 자식 노드를 순회
-			if (!node->is_leaf) {
-				for (const auto& child : node->children) {
-					traverse_recursive(child, depth + 1, callback);
-				}
-			}
-		}
+            bool found = false;
 
-		// 노드 분할
-		void subdivide(OctreeNode* node) {
-			float half_size = node->nodeSize / 2.0f;
-			for (int i = 0; i < 8; ++i) {
-				Eigen::Vector3f child_center = node->center + Eigen::Vector3f(
-					(i & 1) ? half_size : -half_size,
-					(i & 2) ? half_size : -half_size,
-					(i & 4) ? half_size : -half_size
-				);
-				node->children[i] = NewNode(child_center, half_size);
-			}
-			node->is_leaf = false;
-		}
+            // If the node is a leaf, check each point
+            if (node->depth == maxDepth) {
+                for (size_t pointIndex : node->pointIndices) {
+                    Eigen::Vector3f point = getPointFromIndex(pointIndex);
+                    float dist = distanceToRay(ray, point);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestPointIndex = pointIndex;
+                        found = true;
+                    }
+                }
+            }
+            else {
+                // Recursively check each child node
+                for (int i = 0; i < 8; ++i) {
+                    if (pickPointNode_RayDistance(node->children[i].get(), ray, closestDist, closestPointIndex)) {
+                        found = true;
+                    }
+                }
+            }
 
-		bool has_surface(const OctreeNode* node) {
-			// Check if this node potentially has a surface by comparing its TSDF value with neighboring values.
-			for (const auto& child : node->children) {
-				if (child != nullptr && (node->tsdf_value * child->tsdf_value < 0)) {
-					return true;  // There is a sign difference, so there is a surface.
-				}
-			}
-			return false;
-		}
+            return found;
+        }
 
-		// Trilinear interpolation to estimate the zero-crossing position
-		Eigen::Vector3f interpolate_zero_crossing(const Eigen::Vector3f& p1, const Eigen::Vector3f& p2, float v1, float v2) {
-			float t = v1 / (v1 - v2);
-			return p1 + t * (p2 - p1);
-		}
+        bool pickPointNode_OriginDistance(OctreeNode* node, const Ray& ray, float& closestDist, size_t& closestPointIndex) {
+            if (node == nullptr) {
+                return false;
+            }
 
-		void process_node_for_surface(const OctreeNode* node, std::vector<Vertex>& vertices) {
-			// Apply Marching Cubes logic to extract vertices and triangles from this voxel
-			// Note: This is a high-level pseudocode representation.
-			Eigen::Vector3f cubeCorners[8];
-			float cornerValues[8];
+            // Check if the ray intersects with the node's AABB
+            if (!rayIntersectsAABB(ray, node->aabb)) {
+                return false;
+            }
 
-			// Set corners and their corresponding TSDF values
-			for (int i = 0; i < 8; ++i) {
-				cubeCorners[i] = calculate_corner_position(node, i);
-				cornerValues[i] = get_tsdf_value_at(cubeCorners[i]);
-			}
+            bool found = false;
 
-			// Use Marching Cubes to create vertices based on TSDF values
-			int cubeIndex = 0;
-			for (int i = 0; i < 8; ++i) {
-				if (cornerValues[i] < 0) {
-					cubeIndex |= (1 << i);
-				}
-			}
+            // If the node is a leaf, check each point
+            if (node->depth == maxDepth) {
+                for (size_t pointIndex : node->pointIndices) {
+                    Eigen::Vector3f point = getPointFromIndex(pointIndex);
+                    float dist = (ray.origin - point).norm();  // Distance from ray origin to the point
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestPointIndex = pointIndex;
+                        found = true;
+                    }
+                }
+            }
+            else {
+                // Recursively check each child node
+                for (int i = 0; i < 8; ++i) {
+                    if (pickPointNode_OriginDistance(node->children[i].get(), ray, closestDist, closestPointIndex)) {
+                        found = true;
+                    }
+                }
+            }
 
-			// Use cubeIndex to reference a lookup table
-			int edges = MARCHING_CUBES_TABLE[cubeIndex];
-			if (edges == 0) return;  // No triangles for this cube
+            return found;
+        }
 
-			// Create vertices using interpolation along edges
-			Eigen::Vector3f edgeVertices[12];
-			if (edges & 1) edgeVertices[0] = interpolate_zero_crossing(cubeCorners[0], cubeCorners[1], cornerValues[0], cornerValues[1]);
-			if (edges & 2) edgeVertices[1] = interpolate_zero_crossing(cubeCorners[1], cubeCorners[2], cornerValues[1], cornerValues[2]);
-			// Continue for the remaining edges...
+        bool rayIntersectsAABB(const Ray& ray, const Eigen::AlignedBox3f& aabb) {
+            // Slab method for ray-AABB intersection
+            float tmin = (aabb.min().x() - ray.origin.x()) / ray.direction.x();
+            float tmax = (aabb.max().x() - ray.origin.x()) / ray.direction.x();
 
-			// Add generated vertices to the mesh
-			for (int i = 0; TRIANGLE_TABLE[cubeIndex][i] != -1; i += 3) {
-				Vertex v1, v2, v3;
-				v1.position = edgeVertices[TRIANGLE_TABLE[cubeIndex][i]];
-				v2.position = edgeVertices[TRIANGLE_TABLE[cubeIndex][i + 1]];
-				v3.position = edgeVertices[TRIANGLE_TABLE[cubeIndex][i + 2]];
-				vertices.push_back(v1);
-				vertices.push_back(v2);
-				vertices.push_back(v3);
-			}
-		}
+            if (tmin > tmax) std::swap(tmin, tmax);
 
-		Eigen::Vector3f calculate_corner_position(const OctreeNode* node, int cornerIndex) {
-			float half_size = node->nodeSize / 2.0f;
-			return node->center + Eigen::Vector3f(
-				(cornerIndex & 1) ? half_size : -half_size,
-				(cornerIndex & 2) ? half_size : -half_size,
-				(cornerIndex & 4) ? half_size : -half_size
-			);
-		}
+            float tymin = (aabb.min().y() - ray.origin.y()) / ray.direction.y();
+            float tymax = (aabb.max().y() - ray.origin.y()) / ray.direction.y();
 
-		float get_tsdf_value_at(const Eigen::Vector3f& position) {
-			// Start from the root node and traverse to the appropriate leaf node
-			OctreeNode* current_node = root;
-			while (!current_node->is_leaf) {
-				// Determine which child node contains the position
-				int child_index = 0;
-				if (position.x() >= current_node->center.x()) child_index |= 1;
-				if (position.y() >= current_node->center.y()) child_index |= 2;
-				if (position.z() >= current_node->center.z()) child_index |= 4;
+            if (tymin > tymax) std::swap(tymin, tymax);
 
-				// Traverse to the child node
-				if (current_node->children[child_index] == nullptr) {
-					// If the child node doesn't exist, return the current node's value
-					break;
-				}
-				current_node = current_node->children[child_index];
-			}
+            if ((tmin > tymax) || (tymin > tmax)) return false;
 
-			// Return the TSDF value of the found leaf node
-			return current_node->tsdf_value;
-		}
-	};
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (aabb.min().z() - ray.origin.z()) / ray.direction.z();
+            float tzmax = (aabb.max().z() - ray.origin.z()) / ray.direction.z();
+
+            if (tzmin > tzmax) std::swap(tzmin, tzmax);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            return true;
+        }
+
+        void searchPointsNearRayNode(OctreeNode* node, const Ray& ray, float maxDistance, vector<size_t>& result) {
+            if (node == nullptr) {
+                return;
+            }
+
+            // Check if the ray intersects with an expanded version of the node's AABB
+            if (!rayIntersectsExpandedAABB(ray, node->aabb, maxDistance)) {
+                return;
+            }
+
+            // If the node is a leaf, check each point
+            if (node->depth == maxDepth) {
+                for (size_t pointIndex : node->pointIndices) {
+                    Eigen::Vector3f point = getPointFromIndex(pointIndex);
+                    float dist = distanceToRay(ray, point);
+                    float dot = ray.direction.dot(normals[pointIndex]);
+                    if (dist <= maxDistance && 0 > dot) {
+                        result.push_back(pointIndex);
+                    }
+                }
+            }
+            else {
+                // Recursively check each child node
+                for (int i = 0; i < 8; ++i) {
+                    searchPointsNearRayNode(node->children[i].get(), ray, maxDistance, result);
+                }
+            }
+        }
+
+        bool rayIntersectsExpandedAABB(const Ray& ray, const Eigen::AlignedBox3f& aabb, float maxDistance) {
+            // Expanding the AABB by maxDistance
+            Eigen::AlignedBox3f expandedAABB(aabb.min() - Eigen::Vector3f(maxDistance, maxDistance, maxDistance),
+                aabb.max() + Eigen::Vector3f(maxDistance, maxDistance, maxDistance));
+
+            // Slab method for ray-AABB intersection
+            float tmin = (expandedAABB.min().x() - ray.origin.x()) / ray.direction.x();
+            float tmax = (expandedAABB.max().x() - ray.origin.x()) / ray.direction.x();
+
+            if (tmin > tmax) std::swap(tmin, tmax);
+
+            float tymin = (expandedAABB.min().y() - ray.origin.y()) / ray.direction.y();
+            float tymax = (expandedAABB.max().y() - ray.origin.y()) / ray.direction.y();
+
+            if (tymin > tymax) std::swap(tymin, tymax);
+
+            if ((tmin > tymax) || (tymin > tmax)) return false;
+
+            if (tymin > tmin) tmin = tymin;
+            if (tymax < tmax) tmax = tymax;
+
+            float tzmin = (expandedAABB.min().z() - ray.origin.z()) / ray.direction.z();
+            float tzmax = (expandedAABB.max().z() - ray.origin.z()) / ray.direction.z();
+
+            if (tzmin > tzmax) std::swap(tzmin, tzmax);
+
+            if ((tmin > tzmax) || (tzmin > tmax)) return false;
+
+            return true;
+        }
+
+        float distanceToRay(const Ray& ray, const Eigen::Vector3f& point) {
+            // Distance from point to ray (perpendicular distance)
+            Eigen::Vector3f pToOrigin = point - ray.origin;
+            float t = pToOrigin.dot(ray.direction);
+            Eigen::Vector3f closestPointOnRay = ray.origin + t * ray.direction;
+            return (closestPointOnRay - point).norm();
+        }
+
+        Eigen::Vector3f getPointFromIndex(size_t index) const {
+            return points[index];
+        }
+
+        void traverseNode(OctreeNode* node, const std::function<void(OctreeNode*)>& f) {
+            if (!node) return;
+
+            // Apply the function to the current node
+            f(node);
+
+            // Recursively traverse children nodes if they exist
+            for (int i = 0; i < 8; ++i) {
+                traverseNode(node->children[i].get(), f);
+            }
+        }
+    };
+
 }

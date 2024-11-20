@@ -408,8 +408,8 @@ void AppStartCallback_Capture(App* pApp)
 
 		static size_t index = 0;
 
-		auto kdTreePoints = (vector<Eigen::Vector3f>*)pApp->temp["kdTreePoints"];
-		auto kdTreeColors = (vector<Color4>*)pApp->temp["kdTreeColors"];
+		auto kdTreePoints = (vector<Eigen::Vector3f>*)pApp->registry["kdTreePoints"];
+		auto kdTreeColors = (vector<Color4>*)pApp->registry["kdTreeColors"];
 
 		auto& p = (*kdTreePoints)[index];
 		auto& c = (*kdTreeColors)[index];
@@ -882,8 +882,8 @@ void AppStartCallback_KDTree(App* pApp)
 	//	kdtree->Insert(i);
 	//}
 
-	pApp->temp["kdtree"] = kdtree;
-	pApp->temp["points"] = &points;
+	pApp->registry["kdtree"] = kdtree;
+	pApp->registry["points"] = &points;
 
 	t = Time::End(t, "Building KDTree");
 
@@ -904,10 +904,91 @@ void AppStartCallback_KDTree(App* pApp)
 	printf("count : %llu\n", count);
 }
 
+void AppStartCallback_Octree(App* pApp)
+{
+	auto renderer = pApp->GetRenderer();
+	//LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 100.0f, 0.0f }, Color4::Green);
+	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 0.0f, 0.0f, 100.0f }, Color4::Blue);
+
+	vtkNew<vtkPLYReader> reader;
+	reader->SetFileName("C:\\Resources\\3D\\PLY\\Complete\\Lower_pointcloud.ply");
+	reader->Update();
+
+	vtkPolyData* polyData = reader->GetOutput();
+
+	auto plyPoints = polyData->GetPoints();
+	float* rawPoints = static_cast<float*>(plyPoints->GetData()->GetVoidPointer(0));
+	vtkDataArray* plyNormals = polyData->GetPointData()->GetNormals();
+	float* rawNormals = static_cast<float*>(plyNormals->GetVoidPointer(0));
+	vtkUnsignedCharArray* plyColors = vtkUnsignedCharArray::SafeDownCast(polyData->GetPointData()->GetScalars());
+
+	static vector<Eigen::Vector3f> points;
+	static vector<Color4> colors;
+
+	vector<unsigned int> pointIndices;
+
+	for (size_t pi = 0; pi < plyPoints->GetNumberOfPoints(); pi++)
+	{
+		pointIndices.push_back((unsigned int)pi);
+
+		auto dp = plyPoints->GetPoint(pi);
+		auto normal = plyNormals->GetTuple(pi);
+		unsigned char color[3];
+		plyColors->GetTypedTuple(pi, color);
+
+		points.push_back({ (float)dp[0], (float)dp[1], (float)dp[2] });
+		colors.push_back(Color4(color[0], color[1], color[2], 255));
+
+		VD::AddSphere("points",
+			{ (float)dp[0], (float)dp[1], (float)dp[2] },
+			{ 0.1f,0.1f,0.1f },
+			{ 0.0f, 0.0f, 1.0f },
+			Color4(color[0], color[1], color[2], 255));
+	}
+
+	auto t = Time::Now();
+
+	auto bounds = polyData->GetBounds();
+	Eigen::AlignedBox3f aabb(
+		Eigen::Vector3f { (float)bounds[0], (float)bounds[2], (float)bounds[4] },
+		Eigen::Vector3f { (float)bounds[1], (float)bounds[3], (float)bounds[5] });
+	static Spatial::Octree octree(aabb, 8, 10000);
+
+	pApp->registry["octree"] = &octree;
+
+	Eigen::Vector3f* newPoints = new Eigen::Vector3f[plyPoints->GetNumberOfPoints()];
+	memcpy(newPoints, rawPoints, sizeof(Eigen::Vector3f) * plyPoints->GetNumberOfPoints());
+	Eigen::Vector3f* newNormals = new Eigen::Vector3f[plyPoints->GetNumberOfPoints()];
+	memcpy(newNormals, rawNormals, sizeof(Eigen::Vector3f) * plyPoints->GetNumberOfPoints());
+	pApp->registry["octree_points"] = newPoints;
+	pApp->registry["octree_normals"] = newNormals;
+	octree.setPoints(newPoints, newNormals, plyPoints->GetNumberOfPoints());
+
+	for (size_t pi = 0; pi < plyPoints->GetNumberOfPoints(); pi++)
+	{
+		octree.insert(pi);
+	}
+
+	t = Time::End(t, "Octree Building");
+
+	//octree.traverse([&](Spatial::OctreeNode* node) {
+	//	if (node->children[0] == nullptr && node->pointIndices.size() != 0)
+	//	{
+	//		Eigen::Vector3f center = node->aabb.center();
+	//		Eigen::Vector3f scale = node->aabb.max() - node->aabb.min();
+	//		VD::AddCube("OctreeNodes", center, scale, {0.0f, 0.0f, 1.0f}, Color4::Red);
+	//	}
+	//	});
+}
+
 void AppStartCallback(App* pApp)
 {
 	//AppStartCallback_Integrate(pApp);
 	//AppStartCallback_Convert(pApp);
 	//AppStartCallback_LoadPNT(pApp);
-	AppStartCallback_KDTree(pApp);
+	//AppStartCallback_KDTree(pApp);
+	AppStartCallback_Octree(pApp);
 }

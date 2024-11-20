@@ -3,11 +3,15 @@
 #include <limits.h>
 #include <stdio.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <map>
+#include <memory>
+#include <optional>
 #include <queue>
 #include <random>
 #include <set>
