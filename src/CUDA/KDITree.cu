@@ -2,7 +2,7 @@
 
 #define WINDOW_SIZE 3
 
-namespace Algorithm
+namespace CUDA
 {
     __device__ __host__ kdiTree::kdiTree() {}
     __device__ __host__ kdiTree::~kdiTree() {}

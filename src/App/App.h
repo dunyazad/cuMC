@@ -94,6 +94,16 @@ public:
     void RemoveKeyPressCallback();
     void RemoveKeyPressCallback(const string& name);
 
+    void AddMouseButtonPressCallback(function<void(App*, int)> f);
+    void AddMouseButtonPressCallback(const string& name, function<void(App*, int)> f);
+    void RemoveMouseButtonPressCallback();
+    void RemoveMouseButtonPressCallback(const string& name);
+
+    void AddMouseButtonReleaseCallback(function<void(App*, int)> f);
+    void AddMouseButtonReleaseCallback(const string& name, function<void(App*, int)> f);
+    void RemoveMouseButtonReleaseCallback();
+    void RemoveMouseButtonReleaseCallback(const string& name);
+
     void OnUpdate();
     void OnPostRender();
 
@@ -101,6 +111,8 @@ public:
     void CaptureAsPointCloud(const string& saveDirectory);
 
     static void OnKeyPress();
+    static void OnMouseButtonPress(int button);
+    static void OnMouseButtonRelease(int button);
 
     inline vtkSmartPointer<vtkRenderer> GetRenderer() const { return renderer; }
     inline vtkSmartPointer<vtkRenderWindow> GetRenderWindow() const { return renderWindow; }
@@ -125,6 +137,8 @@ private:
     map<string, function<void(App*)>> appUpdateCallbacks;
     map<string, function<void(App*)>> appPostRenderCallbacks;
     map<string, function<void(App*)>> keyPressCallbacks;
+    map<string, function<void(App*, int)>> mouseButtonPressCallbacks;
+    map<string, function<void(App*, int)>> mouseButtonReleaseCallbacks;
 
     bool captureEnabled = false;
 };

@@ -2,6 +2,7 @@
 #include <App/App.h>
 #include <App/AppEventHandlers.h>
 
+#include <Algorithm/KDTree.h>
 #include <Algorithm/SVO.h>
 #include <Algorithm/Octree.hpp>
 
@@ -13,8 +14,6 @@
 using VD = VisualDebugging;
 
 #include <CUDA/HashTable.cuh>
-#include <CUDA/KDTree.cuh>
-#include <CUDA/KDITree.cuh>
 #include <CUDA/SVO.cuh>
 #include <CUDA/AOctree.cuh>
 
@@ -807,67 +806,6 @@ void AppStartCallback_Integrate(App* pApp)
 		//}
 	}
 
-	//{
-	//	ofstream ofs;
-	//	ofs.open("C:\\Resources\\Debug\\Volume.vol", ios::out | ios::binary);
-	//	if (ofs.is_open())
-	//	{
-	//		for (size_t i = 0; i < volumeDimensionX * volumeDimensionY * volumeDimensionZ; i++)
-	//		{
-	//			auto& voxel = volume[i];
-	//			ofs.write((char*)&voxel, sizeof(CUDA::Voxel));
-	//		}
-	//		ofs.close();
-	//	}
-	//	else
-	//	{
-	//		printf("C:\\Resources\\Debug\\Volume.vol Open Error\n");
-	//	}
-	//}
-
-	//{
-	//	auto t = Time::Now();
-
-	//	FILE* fp = fopen("C:\\Resources\\Debug\\Volume.vol", "rb");
-	//	if (nullptr != fp)
-	//	{
-	//		for (size_t i = 0; i < volumeDimensionX * volumeDimensionY * volumeDimensionZ; i++)
-	//		{
-	//			CUDA::Voxel voxel;
-	//			fread((char*)&voxel, sizeof(CUDA::Voxel), 1, fp);
-
-	//			volume[i] = voxel;
-
-	//			if (volume[i].tsdfValue != 1.0f) continue;
-
-	//			int zKey = i / (volumeDimensionX * volumeDimensionY);
-	//			int yKey = (i % (volumeDimensionX * volumeDimensionY)) / volumeDimensionX;
-	//			int xKey = (i % (volumeDimensionX * volumeDimensionY)) % volumeDimensionX;
-
-	//			float x = xKey * voxelSize - modelTranslation.x();
-	//			float y = yKey * voxelSize - modelTranslation.y();
-	//			float z = zKey * voxelSize - modelTranslation.z();
-
-	//			//printf("%f, %f, %f\n", x, y, z);
-
-	//			VD::AddCube("temp", { x, y, z }, 0.1f, Color4::Red);
-
-	//			float ratio = (float)i / (float)(volumeDimensionX* volumeDimensionY* volumeDimensionZ);
-	//			if (i % 1000 == 0)
-	//			{
-	//				printf("ratio : %f\n", ratio);
-	//			}
-	//		}
-	//		fclose(fp);
-	//	}
-	//	else
-	//	{
-	//		printf("C:\\Resources\\Debug\\Volume.vol Open Error\n");
-	//	}
-
-	//	Time::End(t, "Show Voxels");
-	//}
-
 	cudaFree(volume);
 
 	VisualDebugging::AddLine("axes", { 0, 0, 0 }, { 100.0f, 0.0f, 0.0f }, Color4::Red);
@@ -878,7 +816,45 @@ void AppStartCallback_Integrate(App* pApp)
 void AppStartCallback_Simple(App* pApp)
 {
 	auto renderer = pApp->GetRenderer();
-	LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+	//LoadModel(renderer, "C:\\Resources\\3D\\PLY\\Complete\\Lower.ply");
+
+	vtkNew<vtkPLYReader> reader;
+	reader->SetFileName("C:\\Resources\\3D\\PLY\\Complete\\Lower_pointcloud.ply");
+	reader->Update();
+
+	vtkPolyData* polyData = reader->GetOutput();
+
+	auto plyPoints = polyData->GetPoints();
+	vtkDataArray* plyNormals = polyData->GetPointData()->GetNormals();
+	vtkUnsignedCharArray* plyColors = vtkUnsignedCharArray::SafeDownCast(polyData->GetPointData()->GetScalars());
+
+	vector<Eigen::Vector3f> points;
+	for (size_t pi = 0; pi < plyPoints->GetNumberOfPoints(); pi++)
+	{
+		auto dp = plyPoints->GetPoint(pi);
+		auto normal = plyNormals->GetTuple(pi);
+		unsigned char color[3];
+		plyColors->GetTypedTuple(pi, color);
+
+		points.push_back({ (float)dp[0], (float)dp[1], (float)dp[2] });
+
+		VD::AddSphere("points",
+			{ (float)dp[0], (float)dp[1], (float)dp[2] },
+			{ 0.2f,0.2f,0.2f },
+			{ 0.0f, 0.0f, 1.0f },
+			Color4(color[0], color[1], color[2], 255));
+	}
+
+	auto t = Time::Now();
+
+	Algorithm::KDTree kdtree;
+	kdtree.SetPoints((float*)points.data());
+	for (size_t i = 0; i < plyPoints->GetNumberOfPoints(); i++)
+	{
+		kdtree.Insert(i);
+	}
+
+	t = Time::End(t, "Building KDTree");
 }
 
 void AppStartCallback(App* pApp)

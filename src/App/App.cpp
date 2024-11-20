@@ -229,6 +229,60 @@ void App::RemoveKeyPressCallback(const string& name)
 	}
 }
 
+void App::AddMouseButtonPressCallback(function<void(App*, int)> f)
+{
+    AddMouseButtonPressCallback("Default", f);
+}
+
+void App::AddMouseButtonPressCallback(const string& name, function<void(App*, int)> f)
+{
+    if (0 != mouseButtonPressCallbacks.count(name))
+    {
+        printf("[Error] same name callback exists!");
+    }
+    mouseButtonPressCallbacks[name] = f;
+}
+
+void App::RemoveMouseButtonPressCallback()
+{
+    RemoveMouseButtonPressCallback("Default");
+}
+
+void App::RemoveMouseButtonPressCallback(const string& name)
+{
+    if (0 != mouseButtonReleaseCallbacks.count(name))
+    {
+        mouseButtonReleaseCallbacks.erase(name);
+    }
+}
+
+void App::AddMouseButtonReleaseCallback(function<void(App*, int)> f)
+{
+    AddMouseButtonReleaseCallback("Default", f);
+}
+
+void App::AddMouseButtonReleaseCallback(const string& name, function<void(App*, int)> f)
+{
+    if (0 != mouseButtonReleaseCallbacks.count(name))
+    {
+        printf("[Error] same name callback exists!");
+    }
+    mouseButtonReleaseCallbacks[name] = f;
+}
+
+void App::RemoveMouseButtonReleaseCallback()
+{
+    RemoveMouseButtonReleaseCallback("Default");
+}
+
+void App::RemoveMouseButtonReleaseCallback(const string& name)
+{
+    if (0 != mouseButtonReleaseCallbacks.count(name))
+    {
+        mouseButtonReleaseCallbacks.erase(name);
+    }
+}
+
 void App::OnUpdate()
 {
     for (auto& kvp : appUpdateCallbacks)
@@ -254,6 +308,28 @@ void App::OnKeyPress()
 			kvp.second(instance);
 		}
 	}
+}
+
+void App::OnMouseButtonPress(int button)
+{
+    for (auto& instance : s_instances)
+    {
+        for (auto& kvp : instance->mouseButtonPressCallbacks)
+        {
+            kvp.second(instance, button);
+        }
+    }
+}
+
+void App::OnMouseButtonRelease(int button)
+{
+    for (auto& instance : s_instances)
+    {
+        for (auto& kvp : instance->mouseButtonReleaseCallbacks)
+        {
+            kvp.second(instance, button);
+        }
+    }
 }
 
 void App::CaptureColorAndDepth(const string& saveDirectory)

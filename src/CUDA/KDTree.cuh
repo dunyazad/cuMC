@@ -11,7 +11,7 @@
 #include <Eigen/Sparse>
 #include <Eigen/IterativeLinearSolvers>
 
-namespace Algorithm
+namespace CUDA
 {
 	// KDtree dimension
 #define KNN 		4

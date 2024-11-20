@@ -22,10 +22,6 @@ set(cuda_source_list
     src/CUDA/CUDA_Common.cuh
     src/CUDA/CUDA.cuh
     src/CUDA/CUDA.cu
-    src/CUDA/KDTree.cuh
-    src/CUDA/KDTree.cu
-    src/CUDA/KDITree.cuh
-    src/CUDA/KDITree.cu
     src/CUDA/SVO.cuh
     src/CUDA/SVO.cu
     src/CUDA/HashTable.cuh
@@ -60,6 +56,8 @@ set(source_list
     src/App/Utility.cpp
     src/Algorithm/SVO.h
     src/Algorithm/SVO.cpp
+    src/Algorithm/KDtree.h
+    src/Algorithm/KDTree.cpp
     src/Algorithm/Octree.hpp
     src/Algorithm/CustomPolyDataFilter.h
     src/Algorithm/CustomPolyDataFilter.cpp
