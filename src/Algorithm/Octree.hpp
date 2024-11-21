@@ -67,6 +67,20 @@ namespace Spatial
             return result;
         }
 
+        float distanceToRay(const Ray& ray, const Eigen::Vector3f& point) {
+            // Distance from point to ray (perpendicular distance)
+            Eigen::Vector3f pToOrigin = point - ray.origin;
+            float t = pToOrigin.dot(ray.direction);
+            Eigen::Vector3f closestPointOnRay = ray.origin + t * ray.direction;
+            return (closestPointOnRay - point).norm();
+        }
+
+        std::vector<size_t> radiusSearch(const Eigen::Vector3f& queryPoint, float radius) {
+            std::vector<size_t> result;
+            radiusSearchNode(root.get(), queryPoint, radius, result);
+            return result;
+        }
+
         Eigen::Vector3f* points = nullptr;
         Eigen::Vector3f* normals = nullptr;
         size_t numberOfPoints = 0;
@@ -288,16 +302,51 @@ namespace Spatial
             return true;
         }
 
-        float distanceToRay(const Ray& ray, const Eigen::Vector3f& point) {
-            // Distance from point to ray (perpendicular distance)
-            Eigen::Vector3f pToOrigin = point - ray.origin;
-            float t = pToOrigin.dot(ray.direction);
-            Eigen::Vector3f closestPointOnRay = ray.origin + t * ray.direction;
-            return (closestPointOnRay - point).norm();
-        }
-
         Eigen::Vector3f getPointFromIndex(size_t index) const {
             return points[index];
+        }
+
+        // Recursive function to perform radius search on each node
+        void radiusSearchNode(OctreeNode* node, const Eigen::Vector3f& queryPoint, float radius, std::vector<size_t>& result) {
+            if (node == nullptr) {
+                return;
+            }
+
+            // Check if the search sphere intersects the node's AABB
+            if (!sphereIntersectsAABB(queryPoint, radius, node->aabb)) {
+                return;
+            }
+
+            // If it's a leaf node, check all points within it
+            if (node->depth == maxDepth) {
+                for (size_t pointIndex : node->pointIndices) {
+                    Eigen::Vector3f point = points[pointIndex];
+                    if ((point - queryPoint).squaredNorm() <= radius * radius) {
+                        result.push_back(pointIndex);
+                    }
+                }
+            }
+            else {
+                // Recursively check each child node
+                for (int i = 0; i < 8; ++i) {
+                    radiusSearchNode(node->children[i].get(), queryPoint, radius, result);
+                }
+            }
+        }
+
+        // Utility function to check if a sphere intersects an AABB
+        bool sphereIntersectsAABB(const Eigen::Vector3f& center, float radius, const Eigen::AlignedBox3f& aabb) {
+            // Calculate the closest point on the AABB to the sphere's center manually
+            Eigen::Vector3f closestPoint;
+            for (int i = 0; i < 3; ++i) {
+                closestPoint[i] = std::max(aabb.min()[i], std::min(center[i], aabb.max()[i]));
+            }
+
+            // Calculate the distance from the sphere's center to this closest point
+            float distanceSquared = (closestPoint - center).squaredNorm();
+
+            // The sphere intersects the AABB if this distance is less than or equal to the radius squared
+            return distanceSquared <= radius * radius;
         }
 
         void traverseNode(OctreeNode* node, const std::function<void(OctreeNode*)>& f) {
@@ -312,5 +361,4 @@ namespace Spatial
             }
         }
     };
-
 }
